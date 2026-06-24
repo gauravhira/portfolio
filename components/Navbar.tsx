@@ -1,6 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { calendlyUrl } from "@/lib/data";
+
+const navItems = [
+  { label: "Services", href: "#services" },
+  { label: "Work", href: "#projects" },
+  { label: "Skills", href: "#skills" },
+  { label: "Experience", href: "#experience" },
+  { label: "Contact", href: "#contact" },
+];
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -23,22 +31,24 @@ export default function Navbar() {
         Gaurav Hira
       </a>
       <ul className="hidden md:flex gap-7 list-none">
-        {["Projects", "Skills", "Experience", "Contact"].map((item) => (
-          <li key={item}>
+        {navItems.map((item) => (
+          <li key={item.label}>
             <a
-              href={`#${item.toLowerCase()}`}
+              href={item.href}
               className="text-[13px] font-medium text-[--muted] hover:text-[--navy] transition-colors duration-200"
             >
-              {item}
+              {item.label}
             </a>
           </li>
         ))}
       </ul>
       <a
-        href="mailto:gauravhira24@gmail.com"
+        href={calendlyUrl}
+        target="_blank"
+        rel="noopener noreferrer"
         className="hidden md:inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[--navy] text-white text-[13px] font-medium hover:bg-[#1a2233] transition-colors"
       >
-        Hire me
+        Book a call
       </a>
     </nav>
   );
