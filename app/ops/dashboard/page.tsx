@@ -1,14 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Lead, LeadStatus } from "@/lib/lead-types";
 
-const TABS: { label: string; value: LeadStatus | "all" }[] = [
+const STATUS_TABS: { label: string; value: LeadStatus | "all" }[] = [
   { label: "All", value: "all" },
+  { label: "New", value: "new" },
   { label: "Drafted", value: "drafted" },
   { label: "Approved", value: "approved" },
   { label: "Sent", value: "sent" },
   { label: "Rejected", value: "rejected" },
+];
+
+const CONFIDENCE_TABS: { label: string; value: string }[] = [
+  { label: "All", value: "all" },
+  { label: "High", value: "high" },
+  { label: "Medium", value: "medium" },
+  { label: "Low", value: "low" },
+];
+
+const SERVICE_FIT_TABS: { label: string; value: string }[] = [
+  { label: "All", value: "all" },
+  { label: "Leadgen", value: "leadgen" },
+  { label: "Automation", value: "automation" },
+  { label: "Social", value: "social" },
+  { label: "Custom", value: "custom" },
 ];
 
 type EditableField = "email_subject" | "email_body" | "linkedin_message";
@@ -105,8 +122,39 @@ function SaveStatusLabel({ status }: { status: FieldSaveStatus | undefined }) {
 }
 
 export default function OpsDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0C0F14] text-white px-6 py-10 md:px-10 text-sm text-white/40">
+          Loading…
+        </div>
+      }
+    >
+      <OpsDashboardContent />
+    </Suspense>
+  );
+}
+
+function OpsDashboardContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [filter, setFilter] = useState<LeadStatus | "all">("all");
+  const [total, setTotal] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">(
+    () => (searchParams.get("status") as LeadStatus | null) || "all"
+  );
+  const [confidenceFilter, setConfidenceFilter] = useState<string>(
+    () => searchParams.get("confidence") || "all"
+  );
+  const [serviceFitFilter, setServiceFitFilter] = useState<string>(
+    () => searchParams.get("service_fit") || "all"
+  );
+  const [businessTypeFilter, setBusinessTypeFilter] = useState<string>(
+    () => searchParams.get("business_type") || "all"
+  );
+  const [businessTypes, setBusinessTypes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [edits, setEdits] = useState<EditState>({});
@@ -121,25 +169,59 @@ export default function OpsDashboardPage() {
   const timersRef = useRef<Record<string, Partial<Record<EditableField, ReturnType<typeof setTimeout>>>>>({});
   const pendingRef = useRef<Record<string, Partial<Record<EditableField, string>>>>({});
 
-  const fetchLeads = useCallback(async (status: LeadStatus | "all") => {
-    setLoading(true);
-    setError("");
-    try {
-      const qs = status === "all" ? "" : `?status=${status}`;
-      const res = await fetch(`/api/ops/leads${qs}`);
-      if (!res.ok) throw new Error("Failed to load leads");
-      const data = await res.json();
-      setLeads(data.leads ?? []);
-    } catch {
-      setError("Could not load leads");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchLeads = useCallback(
+    async (filters: {
+      status: LeadStatus | "all";
+      confidence: string;
+      serviceFit: string;
+      businessType: string;
+    }) => {
+      setLoading(true);
+      setError("");
+      try {
+        const qs = new URLSearchParams();
+        if (filters.status !== "all") qs.set("status", filters.status);
+        if (filters.confidence !== "all") qs.set("confidence", filters.confidence);
+        if (filters.serviceFit !== "all") qs.set("service_fit", filters.serviceFit);
+        if (filters.businessType !== "all") qs.set("business_type", filters.businessType);
+        const query = qs.toString();
+        const res = await fetch(`/api/ops/leads${query ? `?${query}` : ""}`);
+        if (!res.ok) throw new Error("Failed to load leads");
+        const data = await res.json();
+        setLeads(data.leads ?? []);
+        setTotal(data.total ?? 0);
+      } catch {
+        setError("Could not load leads");
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
-    fetchLeads(filter);
-  }, [filter, fetchLeads]);
+    fetchLeads({
+      status: statusFilter,
+      confidence: confidenceFilter,
+      serviceFit: serviceFitFilter,
+      businessType: businessTypeFilter,
+    });
+
+    const qs = new URLSearchParams();
+    if (statusFilter !== "all") qs.set("status", statusFilter);
+    if (confidenceFilter !== "all") qs.set("confidence", confidenceFilter);
+    if (serviceFitFilter !== "all") qs.set("service_fit", serviceFitFilter);
+    if (businessTypeFilter !== "all") qs.set("business_type", businessTypeFilter);
+    const query = qs.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [statusFilter, confidenceFilter, serviceFitFilter, businessTypeFilter, fetchLeads, router, pathname]);
+
+  useEffect(() => {
+    fetch("/api/ops/leads/business-types")
+      .then((res) => res.json())
+      .then((data) => setBusinessTypes(data.business_types ?? []))
+      .catch(() => {});
+  }, []);
 
   function editValue(lead: Lead, field: EditableField) {
     return edits[lead.id]?.[field] ?? lead[field] ?? "";
@@ -322,7 +404,12 @@ export default function OpsDashboardPage() {
         }));
       } else {
         setSendResults((prev) => ({ ...prev, [lead.id]: { ok: true, message: "Email sent" } }));
-        await fetchLeads(filter);
+        await fetchLeads({
+          status: statusFilter,
+          confidence: confidenceFilter,
+          serviceFit: serviceFitFilter,
+          businessType: businessTypeFilter,
+        });
       }
     } catch {
       setSendResults((prev) => ({
@@ -346,21 +433,84 @@ export default function OpsDashboardPage() {
         <HunterUsageWidget />
       </div>
 
-      <div className="flex gap-2 mb-6 flex-wrap">
-        {TABS.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setFilter(tab.value)}
-            className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-              filter === tab.value
-                ? "bg-[#01CAFF] text-[#0C0F14] border-[#01CAFF] font-medium"
-                : "border-white/15 text-white/70 hover:border-white/30"
-            }`}
+      <div className="flex flex-col gap-3 mb-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-white/30 mb-1.5">Status</p>
+          <div className="flex gap-2 flex-wrap">
+            {STATUS_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setStatusFilter(tab.value)}
+                className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                  statusFilter === tab.value
+                    ? "bg-[#01CAFF] text-[#0C0F14] border-[#01CAFF] font-medium"
+                    : "border-white/15 text-white/70 hover:border-white/30"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-white/30 mb-1.5">Confidence</p>
+          <div className="flex gap-2 flex-wrap">
+            {CONFIDENCE_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setConfidenceFilter(tab.value)}
+                className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                  confidenceFilter === tab.value
+                    ? "bg-[#DA850B] text-[#0C0F14] border-[#DA850B] font-medium"
+                    : "border-white/15 text-white/70 hover:border-white/30"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-white/30 mb-1.5">Service fit</p>
+          <div className="flex gap-2 flex-wrap">
+            {SERVICE_FIT_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setServiceFitFilter(tab.value)}
+                className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                  serviceFitFilter === tab.value
+                    ? "bg-[#01CAFF] text-[#0C0F14] border-[#01CAFF] font-medium"
+                    : "border-white/15 text-white/70 hover:border-white/30"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-white/30 mb-1.5">Business type</p>
+          <select
+            value={businessTypeFilter}
+            onChange={(e) => setBusinessTypeFilter(e.target.value)}
+            className="rounded-lg bg-white/5 border border-white/15 px-3 py-1.5 text-sm text-white/90 outline-none focus:border-[#01CAFF]"
           >
-            {tab.label}
-          </button>
-        ))}
+            <option value="all">All</option>
+            {businessTypes.map((bt) => (
+              <option key={bt} value={bt}>
+                {bt}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      <p className="text-xs text-white/40 mb-4">
+        Showing {leads.length} of {total} leads
+      </p>
 
       {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
       {loading && <p className="text-white/40 text-sm">Loading…</p>}
@@ -382,7 +532,7 @@ export default function OpsDashboardPage() {
                 <div>
                   <h2 className="font-semibold text-lg leading-tight">{lead.name}</h2>
                   <p className="text-xs text-white/40">
-                    {lead.category ?? "—"} · {lead.location ?? "—"}
+                    {lead.category ?? "—"} · {lead.business_type ?? "—"} · {lead.location ?? "—"}
                   </p>
                 </div>
               </div>
