@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Lead, LeadStatus } from "@/lib/lead-types";
 
 const TABS: { label: string; value: LeadStatus | "all" }[] = [
@@ -11,8 +11,18 @@ const TABS: { label: string; value: LeadStatus | "all" }[] = [
   { label: "Rejected", value: "rejected" },
 ];
 
-type EditState = Record<string, { email_body: string; linkedin_message: string }>;
+type EditableField = "email_subject" | "email_body" | "linkedin_message";
+type EditState = Record<
+  string,
+  { email_subject: string; email_body: string; linkedin_message: string }
+>;
 type SendResult = { ok: boolean; message: string };
+type FieldSaveStatus = "idle" | "saving" | "saved" | "error";
+type FieldSaveState = Record<string, Partial<Record<EditableField, FieldSaveStatus>>>;
+
+const EDITABLE_FIELDS: EditableField[] = ["email_subject", "email_body", "linkedin_message"];
+const AUTOSAVE_DELAY_MS = 2500;
+const SAVED_FADE_MS = 2000;
 type HunterQuota = { used: number; available: number; remaining: number };
 type HunterUsage = {
   searches: HunterQuota | null;
@@ -37,16 +47,16 @@ function HunterUsageWidget() {
 
   if (error) {
     return (
-      <div className="bg-[#13171F] border border-white/10 rounded-xl px-4 py-3 text-sm text-red-400 mb-6 inline-block">
-        Hunter credits: {error}
+      <div className="bg-[#13171F] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-red-400 whitespace-nowrap">
+        Hunter API Usage: {error}
       </div>
     );
   }
 
   if (!usage) {
     return (
-      <div className="bg-[#13171F] border border-white/10 rounded-xl px-4 py-3 text-sm text-white/40 mb-6 inline-block">
-        Loading Hunter credits…
+      <div className="bg-[#13171F] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white/40 whitespace-nowrap">
+        Hunter API Usage: loading…
       </div>
     );
   }
@@ -54,34 +64,44 @@ function HunterUsageWidget() {
   const quota = usage.searches ?? usage.verifications ?? usage.calls;
 
   return (
-    <div className="bg-[#13171F] border border-white/10 rounded-xl px-4 py-3 text-sm mb-6 inline-flex flex-wrap gap-x-4 gap-y-1 items-center">
-      {usage.searches && (
-        <span>
-          <span className="text-white/40">Searches:</span>{" "}
-          <span className="font-medium">{usage.searches.remaining}</span>
-          <span className="text-white/30"> / {usage.searches.available}</span>
-        </span>
-      )}
-      {usage.verifications && (
-        <span>
-          <span className="text-white/40">Verifications:</span>{" "}
-          <span className="font-medium">{usage.verifications.remaining}</span>
-          <span className="text-white/30"> / {usage.verifications.available}</span>
-        </span>
-      )}
-      {!usage.searches && !usage.verifications && usage.calls && (
-        <span>
-          <span className="text-white/40">Hunter credits:</span>{" "}
-          <span className="font-medium">{usage.calls.remaining}</span>
-          <span className="text-white/30"> / {usage.calls.available}</span>
-        </span>
-      )}
-      {!quota && <span className="text-white/40">Hunter credits: unavailable</span>}
+    <div className="bg-[#13171F] border border-white/10 rounded-xl px-4 py-2.5 whitespace-nowrap">
+      <div className="flex items-center gap-2 text-xs">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+        <span className="text-white/40 uppercase tracking-wide">Hunter API Usage</span>
+      </div>
+      <div className="mt-1 text-sm flex flex-wrap gap-x-3">
+        {usage.searches && (
+          <span className="font-medium">
+            {usage.searches.remaining}{" "}
+            <span className="text-white/40 font-normal">search credits remaining</span>
+          </span>
+        )}
+        {usage.verifications && (
+          <span className="font-medium">
+            {usage.verifications.remaining}{" "}
+            <span className="text-white/40 font-normal">verification credits remaining</span>
+          </span>
+        )}
+        {!usage.searches && !usage.verifications && usage.calls && (
+          <span className="font-medium">
+            {usage.calls.remaining}{" "}
+            <span className="text-white/40 font-normal">credits remaining</span>
+          </span>
+        )}
+        {!quota && <span className="text-white/40">unavailable</span>}
+      </div>
       {usage.reset_date && (
-        <span className="text-white/30 text-xs">Resets {usage.reset_date}</span>
+        <div className="text-[11px] text-white/30 mt-0.5">Resets {usage.reset_date}</div>
       )}
     </div>
   );
+}
+
+function SaveStatusLabel({ status }: { status: FieldSaveStatus | undefined }) {
+  if (!status || status === "idle") return null;
+  if (status === "saving") return <span className="text-white/40 normal-case">Saving…</span>;
+  if (status === "saved") return <span className="text-emerald-400 normal-case">Saved</span>;
+  return <span className="text-red-400 normal-case">Failed to save</span>;
 }
 
 export default function OpsDashboardPage() {
@@ -93,6 +113,13 @@ export default function OpsDashboardPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [sendResults, setSendResults] = useState<Record<string, SendResult>>({});
+  const [fieldSaveStatus, setFieldSaveStatus] = useState<FieldSaveState>({});
+  const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
+
+  // Refs (not state) because timers and in-flight-edit tracking must be readable
+  // synchronously from blur/unmount/beforeunload handlers without waiting on a render.
+  const timersRef = useRef<Record<string, Partial<Record<EditableField, ReturnType<typeof setTimeout>>>>>({});
+  const pendingRef = useRef<Record<string, Partial<Record<EditableField, string>>>>({});
 
   const fetchLeads = useCallback(async (status: LeadStatus | "all") => {
     setLoading(true);
@@ -114,20 +141,145 @@ export default function OpsDashboardPage() {
     fetchLeads(filter);
   }, [filter, fetchLeads]);
 
-  function editValue(lead: Lead, field: "email_body" | "linkedin_message") {
+  function editValue(lead: Lead, field: EditableField) {
     return edits[lead.id]?.[field] ?? lead[field] ?? "";
   }
 
-  function setEditValue(lead: Lead, field: "email_body" | "linkedin_message", value: string) {
+  function setEditValue(lead: Lead, field: EditableField, value: string) {
     setEdits((prev) => ({
       ...prev,
       [lead.id]: {
+        email_subject: prev[lead.id]?.email_subject ?? lead.email_subject ?? "",
         email_body: prev[lead.id]?.email_body ?? lead.email_body ?? "",
         linkedin_message: prev[lead.id]?.linkedin_message ?? lead.linkedin_message ?? "",
         [field]: value,
       },
     }));
   }
+
+  function setFieldStatus(leadId: string, field: EditableField, status: FieldSaveStatus) {
+    setFieldSaveStatus((prev) => ({ ...prev, [leadId]: { ...prev[leadId], [field]: status } }));
+  }
+
+  function sendFieldUpdate(leadId: string, field: EditableField, value: string, keepalive = false) {
+    return fetch(`/api/ops/leads/${leadId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+      keepalive,
+    });
+  }
+
+  const flushField = useCallback(async (leadId: string, field: EditableField) => {
+    const value = pendingRef.current[leadId]?.[field];
+    if (value === undefined) return;
+
+    const leadTimers = timersRef.current[leadId];
+    if (leadTimers?.[field]) {
+      clearTimeout(leadTimers[field]);
+      delete leadTimers[field];
+    }
+
+    setFieldStatus(leadId, field, "saving");
+    try {
+      const res = await sendFieldUpdate(leadId, field, value);
+      if (!res.ok) throw new Error("Save failed");
+      const data = await res.json();
+      setLeads((prev) => prev.map((l) => (l.id === leadId ? data.lead : l)));
+
+      // Only clear "pending" if nothing newer overwrote it while this request was in flight.
+      if (pendingRef.current[leadId]?.[field] === value) {
+        delete pendingRef.current[leadId][field];
+      }
+
+      setFieldSaveStatus((prev) =>
+        prev[leadId]?.[field] === "saving"
+          ? { ...prev, [leadId]: { ...prev[leadId], [field]: "saved" } }
+          : prev
+      );
+      setTimeout(() => {
+        setFieldSaveStatus((prev) =>
+          prev[leadId]?.[field] === "saved"
+            ? { ...prev, [leadId]: { ...prev[leadId], [field]: "idle" } }
+            : prev
+        );
+      }, SAVED_FADE_MS);
+    } catch {
+      setFieldStatus(leadId, field, "error");
+    }
+  }, []);
+
+  function scheduleAutosave(lead: Lead, field: EditableField, value: string) {
+    pendingRef.current[lead.id] = { ...pendingRef.current[lead.id], [field]: value };
+
+    const leadTimers = timersRef.current[lead.id] ?? {};
+    if (leadTimers[field]) clearTimeout(leadTimers[field]);
+    leadTimers[field] = setTimeout(() => {
+      flushField(lead.id, field);
+    }, AUTOSAVE_DELAY_MS);
+    timersRef.current[lead.id] = leadTimers;
+  }
+
+  function flushFieldOnBlur(lead: Lead, field: EditableField) {
+    if (pendingRef.current[lead.id]?.[field] !== undefined) {
+      flushField(lead.id, field);
+    }
+  }
+
+  async function saveNow(lead: Lead) {
+    EDITABLE_FIELDS.forEach((field) => {
+      pendingRef.current[lead.id] = {
+        ...pendingRef.current[lead.id],
+        [field]: editValue(lead, field),
+      };
+    });
+    await Promise.all(EDITABLE_FIELDS.map((field) => flushField(lead.id, field)));
+  }
+
+  function flushLeadPending(leadId: string) {
+    EDITABLE_FIELDS.forEach((field) => {
+      if (pendingRef.current[leadId]?.[field] !== undefined) {
+        flushField(leadId, field);
+      }
+    });
+  }
+
+  function closeExpandedModal() {
+    if (expandedLeadId) flushLeadPending(expandedLeadId);
+    setExpandedLeadId(null);
+  }
+
+  useEffect(() => {
+    if (!expandedLeadId) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") closeExpandedModal();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedLeadId]);
+
+  useEffect(() => {
+    function flushAllPendingKeepalive() {
+      Object.entries(pendingRef.current).forEach(([leadId, fields]) => {
+        (Object.keys(fields) as EditableField[]).forEach((field) => {
+          const value = fields[field];
+          if (value !== undefined) {
+            sendFieldUpdate(leadId, field, value, true).catch(() => {});
+          }
+        });
+      });
+    }
+
+    window.addEventListener("beforeunload", flushAllPendingKeepalive);
+    return () => {
+      window.removeEventListener("beforeunload", flushAllPendingKeepalive);
+      flushAllPendingKeepalive();
+      Object.values(timersRef.current).forEach((leadTimers) => {
+        Object.values(leadTimers ?? {}).forEach((t) => t && clearTimeout(t));
+      });
+    };
+  }, []);
 
   async function patchLead(id: string, body: Record<string, string>) {
     setBusyId(id);
@@ -182,12 +334,17 @@ export default function OpsDashboardPage() {
     }
   }
 
+  const expandedLead = leads.find((l) => l.id === expandedLeadId) ?? null;
+
   return (
     <div className="min-h-screen bg-[#0C0F14] text-white px-6 py-10 md:px-10">
-      <h1 className="text-2xl font-semibold mb-1">Ops Dashboard</h1>
-      <p className="text-sm text-white/40 mb-4">ops.gauravhira.dev · Lead review</p>
-
-      <HunterUsageWidget />
+      <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold mb-1">Ops Dashboard</h1>
+          <p className="text-sm text-white/40">ops.gauravhira.dev · Lead review</p>
+        </div>
+        <HunterUsageWidget />
+      </div>
 
       <div className="flex gap-2 mb-6 flex-wrap">
         {TABS.map((tab) => (
@@ -211,91 +368,137 @@ export default function OpsDashboardPage() {
         <p className="text-white/40 text-sm">No leads in this view.</p>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {leads.map((lead) => (
+      <div className="flex flex-col gap-4 max-w-5xl">
+        {leads.map((lead, index) => (
           <div
             key={lead.id}
-            className="bg-[#13171F] border border-white/10 rounded-2xl p-5 flex flex-col gap-3"
+            className="bg-[#13171F] border border-white/10 rounded-2xl p-6"
           >
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h2 className="font-semibold text-lg leading-tight">{lead.name}</h2>
-                <p className="text-xs text-white/40">
-                  {lead.category ?? "—"} · {lead.location ?? "—"}
-                </p>
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div className="flex items-start gap-3">
+                <span className="text-white/30 font-mono text-sm pt-0.5">
+                  #{index + 1}
+                </span>
+                <div>
+                  <h2 className="font-semibold text-lg leading-tight">{lead.name}</h2>
+                  <p className="text-xs text-white/40">
+                    {lead.category ?? "—"} · {lead.location ?? "—"}
+                  </p>
+                </div>
               </div>
               <span className="text-[11px] uppercase tracking-wide px-2 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 whitespace-nowrap">
                 {lead.status}
               </span>
             </div>
 
-            <div className="flex flex-wrap gap-3 text-sm">
-              {lead.website && (
-                <a
-                  href={lead.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#01CAFF] hover:underline"
-                >
-                  Website
-                </a>
-              )}
-              {lead.email && (
-                <a href={`mailto:${lead.email}`} className="text-[#01CAFF] hover:underline">
-                  {lead.email}
-                </a>
-              )}
-              {lead.instagram_url && (
-                <a
-                  href={lead.instagram_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#01CAFF] hover:underline"
-                >
-                  Instagram
-                </a>
-              )}
+            <div className="grid lg:grid-cols-2 gap-6">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap gap-3 text-sm">
+                  {lead.website && (
+                    <a
+                      href={lead.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#01CAFF] hover:underline"
+                    >
+                      Website
+                    </a>
+                  )}
+                  {lead.email && (
+                    <a href={`mailto:${lead.email}`} className="text-[#01CAFF] hover:underline">
+                      {lead.email}
+                    </a>
+                  )}
+                  {lead.instagram_url && (
+                    <a
+                      href={lead.instagram_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#01CAFF] hover:underline"
+                    >
+                      Instagram
+                    </a>
+                  )}
+                </div>
+
+                {lead.business_summary && (
+                  <p className="text-sm text-white/70">{lead.business_summary}</p>
+                )}
+
+                <div className="text-xs text-white/50 space-y-1">
+                  {lead.service_fit && <p><span className="text-white/30">Service fit:</span> {lead.service_fit}</p>}
+                  {lead.confidence !== null && lead.confidence !== undefined && (
+                    <p><span className="text-white/30">Confidence:</span> {lead.confidence}</p>
+                  )}
+                  {lead.observation && <p><span className="text-white/30">Observation:</span> {lead.observation}</p>}
+                </div>
+
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <label className="text-xs text-white/40">
+                  <div className="flex items-center justify-between">
+                    <span>Email subject</span>
+                    <SaveStatusLabel status={fieldSaveStatus[lead.id]?.email_subject} />
+                  </div>
+                  <input
+                    type="text"
+                    value={editValue(lead, "email_subject")}
+                    onChange={(e) => {
+                      setEditValue(lead, "email_subject", e.target.value);
+                      scheduleAutosave(lead, "email_subject", e.target.value);
+                    }}
+                    onBlur={() => flushFieldOnBlur(lead, "email_subject")}
+                    className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 p-2 text-sm text-white/90 outline-none focus:border-[#01CAFF]"
+                  />
+                </label>
+
+                <label className="text-xs text-white/40">
+                  <div className="flex items-center justify-between">
+                    <span>Email body</span>
+                    <div className="flex items-center gap-2">
+                      <SaveStatusLabel status={fieldSaveStatus[lead.id]?.email_body} />
+                      <button
+                        type="button"
+                        onClick={() => setExpandedLeadId(lead.id)}
+                        className="text-[#01CAFF] hover:underline normal-case"
+                      >
+                        Expand
+                      </button>
+                    </div>
+                  </div>
+                  <textarea
+                    value={editValue(lead, "email_body")}
+                    onChange={(e) => {
+                      setEditValue(lead, "email_body", e.target.value);
+                      scheduleAutosave(lead, "email_body", e.target.value);
+                    }}
+                    onBlur={() => flushFieldOnBlur(lead, "email_body")}
+                    rows={4}
+                    className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 p-2 text-sm text-white/90 outline-none focus:border-[#01CAFF]"
+                  />
+                </label>
+
+                <label className="text-xs text-white/40">
+                  <div className="flex items-center justify-between">
+                    <span>LinkedIn message</span>
+                    <SaveStatusLabel status={fieldSaveStatus[lead.id]?.linkedin_message} />
+                  </div>
+                  <textarea
+                    value={editValue(lead, "linkedin_message")}
+                    onChange={(e) => {
+                      setEditValue(lead, "linkedin_message", e.target.value);
+                      scheduleAutosave(lead, "linkedin_message", e.target.value);
+                    }}
+                    onBlur={() => flushFieldOnBlur(lead, "linkedin_message")}
+                    rows={3}
+                    className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 p-2 text-sm text-white/90 outline-none focus:border-[#01CAFF]"
+                  />
+                </label>
+              </div>
             </div>
 
-            {lead.business_summary && (
-              <p className="text-sm text-white/70">{lead.business_summary}</p>
-            )}
-
-            <div className="text-xs text-white/50 space-y-1">
-              {lead.service_fit && <p><span className="text-white/30">Service fit:</span> {lead.service_fit}</p>}
-              {lead.confidence !== null && lead.confidence !== undefined && (
-                <p><span className="text-white/30">Confidence:</span> {lead.confidence}</p>
-              )}
-              {lead.observation && <p><span className="text-white/30">Observation:</span> {lead.observation}</p>}
-            </div>
-
-            {lead.email_subject && (
-              <p className="text-sm">
-                <span className="text-white/30 text-xs">Subject:</span> {lead.email_subject}
-              </p>
-            )}
-
-            <label className="text-xs text-white/40">
-              Email body
-              <textarea
-                value={editValue(lead, "email_body")}
-                onChange={(e) => setEditValue(lead, "email_body", e.target.value)}
-                rows={4}
-                className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 p-2 text-sm text-white/90 outline-none focus:border-[#01CAFF]"
-              />
-            </label>
-
-            <label className="text-xs text-white/40">
-              LinkedIn message
-              <textarea
-                value={editValue(lead, "linkedin_message")}
-                onChange={(e) => setEditValue(lead, "linkedin_message", e.target.value)}
-                rows={3}
-                className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 p-2 text-sm text-white/90 outline-none focus:border-[#01CAFF]"
-              />
-            </label>
-
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2 pt-4 mt-4 border-t border-white/10">
               <button
                 disabled={busyId === lead.id}
                 onClick={() => patchLead(lead.id, { status: "approved" })}
@@ -311,21 +514,18 @@ export default function OpsDashboardPage() {
                 Reject
               </button>
               <button
-                disabled={busyId === lead.id}
-                onClick={() =>
-                  patchLead(lead.id, {
-                    email_body: editValue(lead, "email_body"),
-                    linkedin_message: editValue(lead, "linkedin_message"),
-                  })
-                }
+                disabled={EDITABLE_FIELDS.some(
+                  (field) => fieldSaveStatus[lead.id]?.[field] === "saving"
+                )}
+                onClick={() => saveNow(lead)}
                 className="flex-1 rounded-lg bg-white/5 border border-white/15 text-sm py-2 disabled:opacity-50"
               >
-                Save Edits
+                Save now
               </button>
             </div>
 
             {lead.status === "approved" && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 mt-3">
                 <button
                   disabled={sendingId === lead.id}
                   onClick={() => sendLead(lead)}
@@ -347,6 +547,85 @@ export default function OpsDashboardPage() {
           </div>
         ))}
       </div>
+
+      {expandedLead && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeExpandedModal();
+          }}
+        >
+          <div className="bg-[#13171F] border border-white/10 rounded-2xl p-6 w-full max-w-3xl max-h-[90vh] flex flex-col">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h2 className="font-semibold text-lg leading-tight">{expandedLead.name}</h2>
+                <p className="text-xs text-white/40">
+                  {expandedLead.category ?? "—"} · {expandedLead.location ?? "—"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeExpandedModal}
+                className="text-white/50 hover:text-white text-sm rounded-lg border border-white/15 px-3 py-1.5"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-4 overflow-y-auto">
+              <label className="text-xs text-white/40">
+                <div className="flex items-center justify-between">
+                  <span>Email subject</span>
+                  <SaveStatusLabel status={fieldSaveStatus[expandedLead.id]?.email_subject} />
+                </div>
+                <input
+                  type="text"
+                  value={editValue(expandedLead, "email_subject")}
+                  onChange={(e) => {
+                    setEditValue(expandedLead, "email_subject", e.target.value);
+                    scheduleAutosave(expandedLead, "email_subject", e.target.value);
+                  }}
+                  onBlur={() => flushFieldOnBlur(expandedLead, "email_subject")}
+                  className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 p-2 text-sm text-white/90 outline-none focus:border-[#01CAFF]"
+                />
+              </label>
+
+              <label className="text-xs text-white/40 flex flex-col flex-1 min-h-0">
+                <div className="flex items-center justify-between">
+                  <span>Email body</span>
+                  <SaveStatusLabel status={fieldSaveStatus[expandedLead.id]?.email_body} />
+                </div>
+                <textarea
+                  value={editValue(expandedLead, "email_body")}
+                  onChange={(e) => {
+                    setEditValue(expandedLead, "email_body", e.target.value);
+                    scheduleAutosave(expandedLead, "email_body", e.target.value);
+                  }}
+                  onBlur={() => flushFieldOnBlur(expandedLead, "email_body")}
+                  className="mt-1 w-full flex-1 min-h-[40vh] rounded-lg bg-white/5 border border-white/10 p-3 text-sm text-white/90 outline-none focus:border-[#01CAFF] resize-none"
+                />
+              </label>
+
+              <label className="text-xs text-white/40">
+                <div className="flex items-center justify-between">
+                  <span>LinkedIn message</span>
+                  <SaveStatusLabel status={fieldSaveStatus[expandedLead.id]?.linkedin_message} />
+                </div>
+                <textarea
+                  value={editValue(expandedLead, "linkedin_message")}
+                  onChange={(e) => {
+                    setEditValue(expandedLead, "linkedin_message", e.target.value);
+                    scheduleAutosave(expandedLead, "linkedin_message", e.target.value);
+                  }}
+                  onBlur={() => flushFieldOnBlur(expandedLead, "linkedin_message")}
+                  rows={4}
+                  className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 p-2 text-sm text-white/90 outline-none focus:border-[#01CAFF]"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

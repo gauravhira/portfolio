@@ -12,6 +12,7 @@ export async function PATCH(
 
   let body: {
     status?: LeadStatus;
+    email_subject?: string;
     email_body?: string;
     linkedin_message?: string;
   };
@@ -29,6 +30,7 @@ export async function PATCH(
     }
     update.status = body.status;
   }
+  if (body.email_subject !== undefined) update.email_subject = body.email_subject;
   if (body.email_body !== undefined) update.email_body = body.email_body;
   if (body.linkedin_message !== undefined) update.linkedin_message = body.linkedin_message;
 
