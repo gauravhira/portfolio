@@ -83,7 +83,7 @@ function HunterUsageWidget() {
   return (
     <div className="bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-2.5 whitespace-nowrap">
       <div className="flex items-center gap-2 text-xs">
-        <span className="pulse-dot w-1.5 h-1.5 rounded-full bg-[--cyan]" />
+        <span className="pulse-dot w-1.5 h-1.5 rounded-full bg-[var(--cyan)]" />
         <span className="text-white/40 uppercase tracking-wide">Hunter API Usage</span>
       </div>
       <div className="mt-1 text-sm flex flex-wrap gap-x-3">
@@ -151,7 +151,7 @@ export default function OpsDashboardPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[--navy] text-white px-6 py-10 md:px-10 text-sm text-white/40">
+        <div className="min-h-screen bg-[var(--navy)] text-white px-6 py-10 md:px-10 text-sm text-white/40">
           Loading…
         </div>
       }
@@ -470,7 +470,7 @@ function OpsDashboardContent() {
   const expandedLead = leads.find((l) => l.id === expandedLeadId) ?? null;
 
   return (
-    <div className="min-h-screen bg-[--navy] text-white px-6 py-10 md:px-10">
+    <div className="min-h-screen bg-[var(--navy)] text-white px-6 py-10 md:px-10">
       <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
         <div>
           <h1 className="font-serif text-2xl mb-1">Ops Dashboard</h1>
@@ -498,7 +498,7 @@ function OpsDashboardContent() {
                 onClick={() => setStatusFilter(tab.value)}
                 className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
                   statusFilter === tab.value
-                    ? "bg-[--cyan] text-[--navy] border-[--cyan] font-medium"
+                    ? "bg-[var(--cyan)] text-[var(--navy)] border-[var(--cyan)] font-medium"
                     : "border-white/[0.12] text-white/70 hover:border-white/30"
                 }`}
               >
@@ -517,7 +517,7 @@ function OpsDashboardContent() {
                 onClick={() => setConfidenceFilter(tab.value)}
                 className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
                   confidenceFilter === tab.value
-                    ? "bg-[--gold] text-[--navy] border-[--gold] font-medium"
+                    ? "bg-[var(--gold)] text-[var(--navy)] border-[var(--gold)] font-medium"
                     : "border-white/[0.12] text-white/70 hover:border-white/30"
                 }`}
               >
@@ -536,7 +536,7 @@ function OpsDashboardContent() {
                 onClick={() => setServiceFitFilter(tab.value)}
                 className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
                   serviceFitFilter === tab.value
-                    ? "bg-[--cyan] text-[--navy] border-[--cyan] font-medium"
+                    ? "bg-[var(--cyan)] text-[var(--navy)] border-[var(--cyan)] font-medium"
                     : "border-white/[0.12] text-white/70 hover:border-white/30"
                 }`}
               >
@@ -551,7 +551,7 @@ function OpsDashboardContent() {
           <select
             value={businessTypeFilter}
             onChange={(e) => setBusinessTypeFilter(e.target.value)}
-            className="rounded-xl bg-white/[0.04] border border-white/[0.12] px-3 py-1.5 text-sm text-white/90 outline-none focus:border-[--cyan]"
+            className="rounded-xl bg-white/[0.04] border border-white/[0.12] px-3 py-1.5 text-sm text-white/90 outline-none focus:border-[var(--cyan)]"
           >
             <option value="all">All</option>
             {businessTypes.map((bt) => (
@@ -611,13 +611,13 @@ function OpsDashboardContent() {
                       href={lead.website}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[--cyan] hover:underline"
+                      className="text-[var(--cyan)] hover:underline"
                     >
                       Website
                     </a>
                   )}
                   {lead.email && (
-                    <a href={`mailto:${lead.email}`} className="text-[--cyan] hover:underline">
+                    <a href={`mailto:${lead.email}`} className="text-[var(--cyan)] hover:underline">
                       {lead.email}
                     </a>
                   )}
@@ -626,7 +626,7 @@ function OpsDashboardContent() {
                       href={lead.instagram_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[--cyan] hover:underline"
+                      className="text-[var(--cyan)] hover:underline"
                     >
                       Instagram
                     </a>
@@ -664,7 +664,7 @@ function OpsDashboardContent() {
                       scheduleAutosave(lead, "email_subject", e.target.value);
                     }}
                     onBlur={() => flushFieldOnBlur(lead, "email_subject")}
-                    className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[--cyan]"
+                    className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[var(--cyan)]"
                   />
                 </label>
 
@@ -676,7 +676,7 @@ function OpsDashboardContent() {
                       <button
                         type="button"
                         onClick={() => setExpandedLeadId(lead.id)}
-                        className="text-[--cyan] hover:underline normal-case"
+                        className="text-[var(--cyan)] hover:underline normal-case"
                       >
                         Expand
                       </button>
@@ -690,7 +690,7 @@ function OpsDashboardContent() {
                     }}
                     onBlur={() => flushFieldOnBlur(lead, "email_body")}
                     rows={4}
-                    className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[--cyan]"
+                    className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[var(--cyan)]"
                   />
                 </label>
 
@@ -707,7 +707,7 @@ function OpsDashboardContent() {
                     }}
                     onBlur={() => flushFieldOnBlur(lead, "linkedin_message")}
                     rows={3}
-                    className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[--cyan]"
+                    className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[var(--cyan)]"
                   />
                 </label>
               </div>
@@ -717,7 +717,7 @@ function OpsDashboardContent() {
               <button
                 disabled={busyId === lead.id}
                 onClick={() => patchLead(lead.id, { status: "approved" })}
-                className="flex-1 rounded-full bg-[--cyan] text-[--navy] text-sm font-medium py-2 disabled:opacity-50"
+                className="flex-1 rounded-full bg-[var(--cyan)] text-[var(--navy)] text-sm font-medium py-2 disabled:opacity-50"
               >
                 Approve
               </button>
@@ -744,7 +744,7 @@ function OpsDashboardContent() {
                 <button
                   disabled={sendingId === lead.id}
                   onClick={() => sendLead(lead)}
-                  className="rounded-full bg-[--gold] text-[--navy] text-sm font-medium py-2 disabled:opacity-50"
+                  className="rounded-full bg-[var(--gold)] text-[var(--navy)] text-sm font-medium py-2 disabled:opacity-50"
                 >
                   {sendingId === lead.id ? "Sending…" : "Send"}
                 </button>
@@ -770,7 +770,7 @@ function OpsDashboardContent() {
             if (e.target === e.currentTarget) closeExpandedModal();
           }}
         >
-          <div className="bg-[--navy] border border-white/[0.1] rounded-2xl p-6 w-full max-w-3xl max-h-[90vh] flex flex-col">
+          <div className="bg-[var(--navy)] border border-white/[0.1] rounded-2xl p-6 w-full max-w-3xl max-h-[90vh] flex flex-col">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <h2 className="font-serif text-lg leading-tight">{expandedLead.name}</h2>
@@ -801,7 +801,7 @@ function OpsDashboardContent() {
                     scheduleAutosave(expandedLead, "email_subject", e.target.value);
                   }}
                   onBlur={() => flushFieldOnBlur(expandedLead, "email_subject")}
-                  className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[--cyan]"
+                  className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[var(--cyan)]"
                 />
               </label>
 
@@ -817,7 +817,7 @@ function OpsDashboardContent() {
                     scheduleAutosave(expandedLead, "email_body", e.target.value);
                   }}
                   onBlur={() => flushFieldOnBlur(expandedLead, "email_body")}
-                  className="mt-1 w-full flex-1 min-h-[40vh] rounded-xl bg-white/[0.04] border border-white/[0.1] p-3 text-sm text-white/90 outline-none focus:border-[--cyan] resize-none"
+                  className="mt-1 w-full flex-1 min-h-[40vh] rounded-xl bg-white/[0.04] border border-white/[0.1] p-3 text-sm text-white/90 outline-none focus:border-[var(--cyan)] resize-none"
                 />
               </label>
 
@@ -834,7 +834,7 @@ function OpsDashboardContent() {
                   }}
                   onBlur={() => flushFieldOnBlur(expandedLead, "linkedin_message")}
                   rows={4}
-                  className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[--cyan]"
+                  className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[var(--cyan)]"
                 />
               </label>
             </div>
