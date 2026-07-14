@@ -13,8 +13,12 @@ export function proxy(request: NextRequest) {
   }
 
   if (isOps) {
-    // Login endpoint stays public; all other /api/ops/* calls require a valid session
-    if (pathname.startsWith("/api/ops/") && pathname !== "/api/ops/auth") {
+    // Login and logout endpoints stay public; all other /api/ops/* calls require a valid session
+    if (
+      pathname.startsWith("/api/ops/") &&
+      pathname !== "/api/ops/auth" &&
+      pathname !== "/api/ops/logout"
+    ) {
       const token = request.cookies.get(SESSION_COOKIE)?.value;
       if (!token || !verifySessionToken(token)) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

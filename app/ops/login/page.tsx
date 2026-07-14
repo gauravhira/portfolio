@@ -30,25 +30,9 @@ export default function OpsLoginPage() {
   }
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      background: "#0C0F14",
-      fontFamily: "system-ui, sans-serif",
-    }}>
-      <div style={{
-        background: "#13171F",
-        border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: "16px",
-        padding: "40px 36px",
-        width: "100%",
-        maxWidth: "360px",
-      }}>
-        <h1 style={{ color: "#fff", fontSize: "20px", fontWeight: 600, marginBottom: "24px" }}>
-          Ops
-        </h1>
+    <div className="min-h-screen flex items-center justify-center bg-[--navy]">
+      <div className="w-full max-w-[360px] bg-white/[0.04] border border-white/[0.08] rounded-2xl px-9 py-10">
+        <h1 className="font-serif text-xl text-white mb-6">Ops</h1>
         <form onSubmit={handleSubmit}>
           <input
             type="password"
@@ -56,39 +40,13 @@ export default function OpsLoginPage() {
             placeholder="Password"
             required
             autoFocus
-            style={{
-              width: "100%",
-              padding: "10px 14px",
-              borderRadius: "8px",
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "rgba(255,255,255,0.05)",
-              color: "#fff",
-              fontSize: "14px",
-              outline: "none",
-              boxSizing: "border-box",
-            }}
+            className="w-full rounded-xl bg-white/[0.05] border border-white/[0.12] px-3.5 py-2.5 text-sm text-white outline-none focus:border-[--cyan] box-border"
           />
-          {error && (
-            <p style={{ color: "#f87171", fontSize: "13px", marginTop: "10px" }}>
-              {error}
-            </p>
-          )}
+          {error && <p className="text-red-400 text-[13px] mt-2.5">{error}</p>}
           <button
             type="submit"
             disabled={loading}
-            style={{
-              marginTop: "16px",
-              width: "100%",
-              padding: "10px",
-              borderRadius: "8px",
-              background: "#01CAFF",
-              color: "#0C0F14",
-              fontWeight: 600,
-              fontSize: "14px",
-              border: "none",
-              cursor: loading ? "not-allowed" : "pointer",
-              opacity: loading ? 0.6 : 1,
-            }}
+            className="mt-4 w-full rounded-full bg-[--cyan] text-[--navy] font-semibold text-sm py-2.5 disabled:opacity-60 disabled:cursor-not-allowed transition-opacity"
           >
             {loading ? "Checking…" : "Enter"}
           </button>

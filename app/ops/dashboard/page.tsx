@@ -64,7 +64,7 @@ function HunterUsageWidget() {
 
   if (error) {
     return (
-      <div className="bg-[#13171F] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-red-400 whitespace-nowrap">
+      <div className="bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-2.5 text-xs text-red-400 whitespace-nowrap">
         Hunter API Usage: {error}
       </div>
     );
@@ -72,7 +72,7 @@ function HunterUsageWidget() {
 
   if (!usage) {
     return (
-      <div className="bg-[#13171F] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white/40 whitespace-nowrap">
+      <div className="bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-2.5 text-xs text-white/40 whitespace-nowrap">
         Hunter API Usage: loading…
       </div>
     );
@@ -81,28 +81,34 @@ function HunterUsageWidget() {
   const quota = usage.searches ?? usage.verifications ?? usage.calls;
 
   return (
-    <div className="bg-[#13171F] border border-white/10 rounded-xl px-4 py-2.5 whitespace-nowrap">
+    <div className="bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-2.5 whitespace-nowrap">
       <div className="flex items-center gap-2 text-xs">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+        <span className="pulse-dot w-1.5 h-1.5 rounded-full bg-[--cyan]" />
         <span className="text-white/40 uppercase tracking-wide">Hunter API Usage</span>
       </div>
       <div className="mt-1 text-sm flex flex-wrap gap-x-3">
         {usage.searches && (
-          <span className="font-medium">
+          <span className="font-serif">
             {usage.searches.remaining}{" "}
-            <span className="text-white/40 font-normal">search credits remaining</span>
+            <span className="text-white/40 font-sans font-normal text-sm">
+              search credits remaining
+            </span>
           </span>
         )}
         {usage.verifications && (
-          <span className="font-medium">
+          <span className="font-serif">
             {usage.verifications.remaining}{" "}
-            <span className="text-white/40 font-normal">verification credits remaining</span>
+            <span className="text-white/40 font-sans font-normal text-sm">
+              verification credits remaining
+            </span>
           </span>
         )}
         {!usage.searches && !usage.verifications && usage.calls && (
-          <span className="font-medium">
+          <span className="font-serif">
             {usage.calls.remaining}{" "}
-            <span className="text-white/40 font-normal">credits remaining</span>
+            <span className="text-white/40 font-sans font-normal text-sm">
+              credits remaining
+            </span>
           </span>
         )}
         {!quota && <span className="text-white/40">unavailable</span>}
@@ -121,11 +127,31 @@ function SaveStatusLabel({ status }: { status: FieldSaveStatus | undefined }) {
   return <span className="text-red-400 normal-case">Failed to save</span>;
 }
 
+const CONFIDENCE_BADGE_STYLES: Record<string, { bg: string; border: string; color: string }> = {
+  high: { bg: "rgba(1,202,255,0.15)", border: "rgba(1,202,255,0.3)", color: "var(--cyan)" },
+  medium: { bg: "rgba(218,133,11,0.15)", border: "rgba(218,133,11,0.3)", color: "var(--gold)" },
+  low: { bg: "rgba(255,255,255,0.05)", border: "rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.55)" },
+};
+
+function ConfidenceBadge({ confidence }: { confidence: Lead["confidence"] }) {
+  if (confidence === null || confidence === undefined || confidence === "") return null;
+  const key = String(confidence).trim().toLowerCase();
+  const style = CONFIDENCE_BADGE_STYLES[key] ?? CONFIDENCE_BADGE_STYLES.low;
+  return (
+    <span
+      className="inline-flex items-center px-2 py-[2px] rounded-full text-[10px] font-medium border uppercase tracking-wide"
+      style={{ background: style.bg, borderColor: style.border, color: style.color }}
+    >
+      {confidence}
+    </span>
+  );
+}
+
 export default function OpsDashboardPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#0C0F14] text-white px-6 py-10 md:px-10 text-sm text-white/40">
+        <div className="min-h-screen bg-[--navy] text-white px-6 py-10 md:px-10 text-sm text-white/40">
           Loading…
         </div>
       }
@@ -421,16 +447,45 @@ function OpsDashboardContent() {
     }
   }
 
+  async function logout() {
+    await fetch("/api/ops/logout", { method: "POST" }).catch(() => {});
+    router.push("/login");
+  }
+
+  function exportCsv() {
+    const qs = new URLSearchParams();
+    if (statusFilter !== "all") qs.set("status", statusFilter);
+    if (confidenceFilter !== "all") qs.set("confidence", confidenceFilter);
+    if (serviceFitFilter !== "all") qs.set("service_fit", serviceFitFilter);
+    if (businessTypeFilter !== "all") qs.set("business_type", businessTypeFilter);
+    const query = qs.toString();
+
+    const link = document.createElement("a");
+    link.href = `/api/ops/export-csv${query ? `?${query}` : ""}`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
   const expandedLead = leads.find((l) => l.id === expandedLeadId) ?? null;
 
   return (
-    <div className="min-h-screen bg-[#0C0F14] text-white px-6 py-10 md:px-10">
+    <div className="min-h-screen bg-[--navy] text-white px-6 py-10 md:px-10">
       <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold mb-1">Ops Dashboard</h1>
+          <h1 className="font-serif text-2xl mb-1">Ops Dashboard</h1>
           <p className="text-sm text-white/40">ops.gauravhira.dev · Lead review</p>
         </div>
-        <HunterUsageWidget />
+        <div className="flex items-start gap-3">
+          <HunterUsageWidget />
+          <button
+            type="button"
+            onClick={logout}
+            className="text-sm text-white/50 hover:text-white border border-white/[0.12] rounded-full px-4 py-1.5 h-fit transition-colors"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 mb-4">
@@ -443,8 +498,8 @@ function OpsDashboardContent() {
                 onClick={() => setStatusFilter(tab.value)}
                 className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
                   statusFilter === tab.value
-                    ? "bg-[#01CAFF] text-[#0C0F14] border-[#01CAFF] font-medium"
-                    : "border-white/15 text-white/70 hover:border-white/30"
+                    ? "bg-[--cyan] text-[--navy] border-[--cyan] font-medium"
+                    : "border-white/[0.12] text-white/70 hover:border-white/30"
                 }`}
               >
                 {tab.label}
@@ -462,8 +517,8 @@ function OpsDashboardContent() {
                 onClick={() => setConfidenceFilter(tab.value)}
                 className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
                   confidenceFilter === tab.value
-                    ? "bg-[#DA850B] text-[#0C0F14] border-[#DA850B] font-medium"
-                    : "border-white/15 text-white/70 hover:border-white/30"
+                    ? "bg-[--gold] text-[--navy] border-[--gold] font-medium"
+                    : "border-white/[0.12] text-white/70 hover:border-white/30"
                 }`}
               >
                 {tab.label}
@@ -481,8 +536,8 @@ function OpsDashboardContent() {
                 onClick={() => setServiceFitFilter(tab.value)}
                 className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
                   serviceFitFilter === tab.value
-                    ? "bg-[#01CAFF] text-[#0C0F14] border-[#01CAFF] font-medium"
-                    : "border-white/15 text-white/70 hover:border-white/30"
+                    ? "bg-[--cyan] text-[--navy] border-[--cyan] font-medium"
+                    : "border-white/[0.12] text-white/70 hover:border-white/30"
                 }`}
               >
                 {tab.label}
@@ -496,7 +551,7 @@ function OpsDashboardContent() {
           <select
             value={businessTypeFilter}
             onChange={(e) => setBusinessTypeFilter(e.target.value)}
-            className="rounded-lg bg-white/5 border border-white/15 px-3 py-1.5 text-sm text-white/90 outline-none focus:border-[#01CAFF]"
+            className="rounded-xl bg-white/[0.04] border border-white/[0.12] px-3 py-1.5 text-sm text-white/90 outline-none focus:border-[--cyan]"
           >
             <option value="all">All</option>
             {businessTypes.map((bt) => (
@@ -508,9 +563,18 @@ function OpsDashboardContent() {
         </div>
       </div>
 
-      <p className="text-xs text-white/40 mb-4">
-        Showing {leads.length} of {total} leads
-      </p>
+      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+        <p className="text-xs text-white/40">
+          Showing {leads.length} of {total} leads
+        </p>
+        <button
+          type="button"
+          onClick={exportCsv}
+          className="text-sm border border-white/[0.12] text-white/70 hover:border-white/30 rounded-full px-4 py-1.5 transition-colors"
+        >
+          Export CSV
+        </button>
+      </div>
 
       {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
       {loading && <p className="text-white/40 text-sm">Loading…</p>}
@@ -522,21 +586,19 @@ function OpsDashboardContent() {
         {leads.map((lead, index) => (
           <div
             key={lead.id}
-            className="bg-[#13171F] border border-white/10 rounded-2xl p-6"
+            className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-6"
           >
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="flex items-start gap-3">
-                <span className="text-white/30 font-mono text-sm pt-0.5">
-                  #{index + 1}
-                </span>
+                <span className="text-white/30 text-sm pt-0.5">#{index + 1}</span>
                 <div>
-                  <h2 className="font-semibold text-lg leading-tight">{lead.name}</h2>
+                  <h2 className="font-serif text-lg leading-tight">{lead.name}</h2>
                   <p className="text-xs text-white/40">
                     {lead.category ?? "—"} · {lead.business_type ?? "—"} · {lead.location ?? "—"}
                   </p>
                 </div>
               </div>
-              <span className="text-[11px] uppercase tracking-wide px-2 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 whitespace-nowrap">
+              <span className="text-[11px] uppercase tracking-wide px-2 py-1 rounded-full bg-white/[0.04] border border-white/[0.08] text-white/60 whitespace-nowrap">
                 {lead.status}
               </span>
             </div>
@@ -549,13 +611,13 @@ function OpsDashboardContent() {
                       href={lead.website}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[#01CAFF] hover:underline"
+                      className="text-[--cyan] hover:underline"
                     >
                       Website
                     </a>
                   )}
                   {lead.email && (
-                    <a href={`mailto:${lead.email}`} className="text-[#01CAFF] hover:underline">
+                    <a href={`mailto:${lead.email}`} className="text-[--cyan] hover:underline">
                       {lead.email}
                     </a>
                   )}
@@ -564,7 +626,7 @@ function OpsDashboardContent() {
                       href={lead.instagram_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[#01CAFF] hover:underline"
+                      className="text-[--cyan] hover:underline"
                     >
                       Instagram
                     </a>
@@ -575,10 +637,13 @@ function OpsDashboardContent() {
                   <p className="text-sm text-white/70">{lead.business_summary}</p>
                 )}
 
-                <div className="text-xs text-white/50 space-y-1">
+                <div className="text-xs text-white/50 space-y-1.5">
                   {lead.service_fit && <p><span className="text-white/30">Service fit:</span> {lead.service_fit}</p>}
-                  {lead.confidence !== null && lead.confidence !== undefined && (
-                    <p><span className="text-white/30">Confidence:</span> {lead.confidence}</p>
+                  {lead.confidence !== null && lead.confidence !== undefined && lead.confidence !== "" && (
+                    <p className="flex items-center gap-2">
+                      <span className="text-white/30">Confidence:</span>
+                      <ConfidenceBadge confidence={lead.confidence} />
+                    </p>
                   )}
                   {lead.observation && <p><span className="text-white/30">Observation:</span> {lead.observation}</p>}
                 </div>
@@ -599,7 +664,7 @@ function OpsDashboardContent() {
                       scheduleAutosave(lead, "email_subject", e.target.value);
                     }}
                     onBlur={() => flushFieldOnBlur(lead, "email_subject")}
-                    className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 p-2 text-sm text-white/90 outline-none focus:border-[#01CAFF]"
+                    className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[--cyan]"
                   />
                 </label>
 
@@ -611,7 +676,7 @@ function OpsDashboardContent() {
                       <button
                         type="button"
                         onClick={() => setExpandedLeadId(lead.id)}
-                        className="text-[#01CAFF] hover:underline normal-case"
+                        className="text-[--cyan] hover:underline normal-case"
                       >
                         Expand
                       </button>
@@ -625,7 +690,7 @@ function OpsDashboardContent() {
                     }}
                     onBlur={() => flushFieldOnBlur(lead, "email_body")}
                     rows={4}
-                    className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 p-2 text-sm text-white/90 outline-none focus:border-[#01CAFF]"
+                    className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[--cyan]"
                   />
                 </label>
 
@@ -642,24 +707,24 @@ function OpsDashboardContent() {
                     }}
                     onBlur={() => flushFieldOnBlur(lead, "linkedin_message")}
                     rows={3}
-                    className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 p-2 text-sm text-white/90 outline-none focus:border-[#01CAFF]"
+                    className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[--cyan]"
                   />
                 </label>
               </div>
             </div>
 
-            <div className="flex gap-2 pt-4 mt-4 border-t border-white/10">
+            <div className="flex gap-2 pt-4 mt-4 border-t border-white/[0.07]">
               <button
                 disabled={busyId === lead.id}
                 onClick={() => patchLead(lead.id, { status: "approved" })}
-                className="flex-1 rounded-lg bg-[#01CAFF] text-[#0C0F14] text-sm font-medium py-2 disabled:opacity-50"
+                className="flex-1 rounded-full bg-[--cyan] text-[--navy] text-sm font-medium py-2 disabled:opacity-50"
               >
                 Approve
               </button>
               <button
                 disabled={busyId === lead.id}
                 onClick={() => patchLead(lead.id, { status: "rejected" })}
-                className="flex-1 rounded-lg bg-white/5 border border-white/15 text-sm py-2 disabled:opacity-50"
+                className="flex-1 rounded-full bg-white/[0.04] border border-white/[0.12] text-sm py-2 disabled:opacity-50"
               >
                 Reject
               </button>
@@ -668,7 +733,7 @@ function OpsDashboardContent() {
                   (field) => fieldSaveStatus[lead.id]?.[field] === "saving"
                 )}
                 onClick={() => saveNow(lead)}
-                className="flex-1 rounded-lg bg-white/5 border border-white/15 text-sm py-2 disabled:opacity-50"
+                className="flex-1 rounded-full bg-white/[0.04] border border-white/[0.12] text-sm py-2 disabled:opacity-50"
               >
                 Save now
               </button>
@@ -679,7 +744,7 @@ function OpsDashboardContent() {
                 <button
                   disabled={sendingId === lead.id}
                   onClick={() => sendLead(lead)}
-                  className="rounded-lg bg-[#DA850B] text-[#0C0F14] text-sm font-medium py-2 disabled:opacity-50"
+                  className="rounded-full bg-[--gold] text-[--navy] text-sm font-medium py-2 disabled:opacity-50"
                 >
                   {sendingId === lead.id ? "Sending…" : "Send"}
                 </button>
@@ -705,10 +770,10 @@ function OpsDashboardContent() {
             if (e.target === e.currentTarget) closeExpandedModal();
           }}
         >
-          <div className="bg-[#13171F] border border-white/10 rounded-2xl p-6 w-full max-w-3xl max-h-[90vh] flex flex-col">
+          <div className="bg-[--navy] border border-white/[0.1] rounded-2xl p-6 w-full max-w-3xl max-h-[90vh] flex flex-col">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <h2 className="font-semibold text-lg leading-tight">{expandedLead.name}</h2>
+                <h2 className="font-serif text-lg leading-tight">{expandedLead.name}</h2>
                 <p className="text-xs text-white/40">
                   {expandedLead.category ?? "—"} · {expandedLead.location ?? "—"}
                 </p>
@@ -716,7 +781,7 @@ function OpsDashboardContent() {
               <button
                 type="button"
                 onClick={closeExpandedModal}
-                className="text-white/50 hover:text-white text-sm rounded-lg border border-white/15 px-3 py-1.5"
+                className="text-white/50 hover:text-white text-sm rounded-full border border-white/[0.12] px-4 py-1.5"
               >
                 Close
               </button>
@@ -736,7 +801,7 @@ function OpsDashboardContent() {
                     scheduleAutosave(expandedLead, "email_subject", e.target.value);
                   }}
                   onBlur={() => flushFieldOnBlur(expandedLead, "email_subject")}
-                  className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 p-2 text-sm text-white/90 outline-none focus:border-[#01CAFF]"
+                  className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[--cyan]"
                 />
               </label>
 
@@ -752,7 +817,7 @@ function OpsDashboardContent() {
                     scheduleAutosave(expandedLead, "email_body", e.target.value);
                   }}
                   onBlur={() => flushFieldOnBlur(expandedLead, "email_body")}
-                  className="mt-1 w-full flex-1 min-h-[40vh] rounded-lg bg-white/5 border border-white/10 p-3 text-sm text-white/90 outline-none focus:border-[#01CAFF] resize-none"
+                  className="mt-1 w-full flex-1 min-h-[40vh] rounded-xl bg-white/[0.04] border border-white/[0.1] p-3 text-sm text-white/90 outline-none focus:border-[--cyan] resize-none"
                 />
               </label>
 
@@ -769,7 +834,7 @@ function OpsDashboardContent() {
                   }}
                   onBlur={() => flushFieldOnBlur(expandedLead, "linkedin_message")}
                   rows={4}
-                  className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 p-2 text-sm text-white/90 outline-none focus:border-[#01CAFF]"
+                  className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/[0.1] p-2 text-sm text-white/90 outline-none focus:border-[--cyan]"
                 />
               </label>
             </div>

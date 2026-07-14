@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
 const COOKIE_NAME = "ops_session";
-const EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+const EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
 
 function sign(secret: string, data: string): string {
   return createHmac("sha256", secret).update(data).digest("hex");
