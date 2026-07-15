@@ -43,11 +43,12 @@ export async function POST(
 
   try {
     await transporter.sendMail({
-      from: "Gaurav Hira <gaurav@gauravhira.dev>",
-      to: lead.email,
-      subject: lead.email_subject,
-      text: lead.email_body,
-    });
+    from: "Gaurav Hira <gaurav@gauravhira.dev>",
+    to: lead.email,
+    bcc: "gaurav@gauravhira.dev",
+    subject: lead.email_subject,
+    text: lead.email_body,
+  });
   } catch (err) {
     console.error("SMTP send failed:", err);
     const message = err instanceof Error ? err.message : "Unknown SMTP error";
