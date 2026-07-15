@@ -538,7 +538,7 @@ function OpsDashboardContent() {
         </div>
       </div>
 
-      <div className="sticky top-0 z-20 bg-[var(--cream)] pt-2 pb-3 mb-2 border-b border-black/[0.07] flex flex-col gap-3">
+      <div className="sticky top-0 z-20 bg-[var(--cream)] pt-2 pb-3 mb-2 border-b border-black/[0.07] flex flex-row flex-wrap items-start gap-x-8 gap-y-2 w-full">
         <div>
           <p className="text-[11px] uppercase tracking-wide text-[var(--muted)] mb-1.5">Status</p>
           <div className="flex gap-2 flex-wrap">
