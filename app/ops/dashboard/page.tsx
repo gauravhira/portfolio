@@ -538,15 +538,15 @@ function OpsDashboardContent() {
         </div>
       </div>
 
-      <div className="sticky top-0 z-20 bg-[var(--cream)] pt-2 pb-3 mb-2 border-b border-black/[0.07] flex flex-row flex-wrap items-start gap-x-8 gap-y-2 w-full">
-        <div>
+      <div className="sticky top-0 z-20 bg-[var(--cream)] pt-2 pb-3 mb-2 border-b border-black/[0.07] flex flex-row flex-nowrap md:flex-wrap items-start gap-x-6 md:gap-x-8 gap-y-2 w-full overflow-x-auto md:overflow-visible">
+        <div className="flex-shrink-0">
           <p className="text-[11px] uppercase tracking-wide text-[var(--muted)] mb-1.5">Status</p>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-nowrap md:flex-wrap">
             {STATUS_TABS.map((tab) => (
               <button
                 key={tab.value}
                 onClick={() => setStatusFilter(tab.value)}
-                className={pillClass(statusFilter === tab.value)}
+                className={pillClass(statusFilter === tab.value) + " whitespace-nowrap"}
               >
                 {tab.label}
               </button>
@@ -554,14 +554,14 @@ function OpsDashboardContent() {
           </div>
         </div>
 
-        <div>
+        <div className="flex-shrink-0">
           <p className="text-[11px] uppercase tracking-wide text-[var(--muted)] mb-1.5">Confidence</p>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-nowrap md:flex-wrap">
             {CONFIDENCE_TABS.map((tab) => (
               <button
                 key={tab.value}
                 onClick={() => setConfidenceFilter(tab.value)}
-                className={pillClass(confidenceFilter === tab.value)}
+                className={pillClass(confidenceFilter === tab.value) + " whitespace-nowrap"}
               >
                 {tab.label}
               </button>
@@ -569,14 +569,14 @@ function OpsDashboardContent() {
           </div>
         </div>
 
-        <div>
+        <div className="flex-shrink-0">
           <p className="text-[11px] uppercase tracking-wide text-[var(--muted)] mb-1.5">Service fit</p>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-nowrap md:flex-wrap">
             {SERVICE_FIT_TABS.map((tab) => (
               <button
                 key={tab.value}
                 onClick={() => setServiceFitFilter(tab.value)}
-                className={pillClass(serviceFitFilter === tab.value)}
+                className={pillClass(serviceFitFilter === tab.value) + " whitespace-nowrap"}
               >
                 {tab.label}
               </button>
@@ -584,7 +584,7 @@ function OpsDashboardContent() {
           </div>
         </div>
 
-        <div>
+        <div className="flex-shrink-0">
           <p className="text-[11px] uppercase tracking-wide text-[var(--muted)] mb-1.5">Business type</p>
           <select
             value={businessTypeFilter}
@@ -600,14 +600,14 @@ function OpsDashboardContent() {
           </select>
         </div>
 
-        <div>
+        <div className="flex-shrink-0">
           <p className="text-[11px] uppercase tracking-wide text-[var(--muted)] mb-1.5">Reachability</p>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-nowrap md:flex-wrap">
             {REACHABILITY_TABS.map((tab) => (
               <button
                 key={tab.value}
                 onClick={() => setReachabilityFilter(tab.value)}
-                className={pillClass(reachabilityFilter === tab.value)}
+                className={pillClass(reachabilityFilter === tab.value) + " whitespace-nowrap"}
               >
                 {tab.label}
               </button>
