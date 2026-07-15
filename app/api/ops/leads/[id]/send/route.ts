@@ -48,8 +48,10 @@ export async function POST(
       subject: lead.email_subject,
       text: lead.email_body,
     });
-  } catch {
-    return NextResponse.json({ error: "Failed to send email" }, { status: 502 });
+  } catch (err) {
+    console.error("SMTP send failed:", err);
+    const message = err instanceof Error ? err.message : "Unknown SMTP error";
+    return NextResponse.json({ error: `Failed to send email: ${message}` }, { status: 502 });
   }
 
   const { data: updated, error: updateError } = await supabase
