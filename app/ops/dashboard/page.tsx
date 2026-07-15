@@ -538,7 +538,7 @@ function OpsDashboardContent() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 mb-4">
+      <div className="sticky top-0 z-20 bg-[var(--cream)] pt-2 pb-3 mb-2 border-b border-black/[0.07] flex flex-col gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-wide text-[var(--muted)] mb-1.5">Status</p>
           <div className="flex gap-2 flex-wrap">
@@ -642,7 +642,7 @@ function OpsDashboardContent() {
         <p className="text-[var(--muted)] text-sm">No leads in this view.</p>
       )}
 
-      <div className="flex flex-col gap-4 max-w-6xl">
+      <div className="flex flex-col gap-4">
         {leads.map((lead, index) => (
           <div
             key={lead.id}
@@ -758,7 +758,7 @@ function OpsDashboardContent() {
                       scheduleAutosave(lead, "email_body", e.target.value);
                     }}
                     onBlur={() => flushFieldOnBlur(lead, "email_body")}
-                    rows={4}
+                    rows={8}
                     className={fieldInputClass}
                   />
                 </label>
