@@ -47,5 +47,9 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon\\.ico).*)", "/"],
+  // Exclude the entire _next/* prefix (not just _next/static|_next/image) — this
+  // also covers internal paths like the dev-mode HMR websocket (_next/webpack-hmr),
+  // which would otherwise get rewritten to a nonexistent /ops/_next/webpack-hmr
+  // path and break the WebSocket handshake (ERR_INVALID_HTTP_RESPONSE) in dev.
+  matcher: ["/((?!_next/|favicon\\.ico).*)", "/"],
 };

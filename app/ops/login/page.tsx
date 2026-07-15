@@ -30,9 +30,9 @@ export default function OpsLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--navy)]">
-      <div className="w-full max-w-[360px] bg-white/[0.04] border border-white/[0.08] rounded-2xl px-9 py-10">
-        <h1 className="font-serif text-xl text-white mb-6">Ops</h1>
+    <div className="min-h-screen flex items-center justify-center bg-[var(--cream)]">
+      <div className="w-full max-w-[360px] bg-white border border-black/[0.08] rounded-2xl px-9 py-10">
+        <h1 className="font-serif text-xl text-[var(--navy)] mb-6">Ops</h1>
         <form onSubmit={handleSubmit}>
           <input
             type="password"
@@ -40,13 +40,13 @@ export default function OpsLoginPage() {
             placeholder="Password"
             required
             autoFocus
-            className="w-full rounded-xl bg-white/[0.05] border border-white/[0.12] px-3.5 py-2.5 text-sm text-white outline-none focus:border-[var(--cyan)] box-border"
+            className="w-full rounded-xl bg-black/[0.03] border border-black/[0.15] px-3.5 py-2.5 text-sm text-[var(--navy)] outline-none focus:border-[var(--navy)] box-border"
           />
-          {error && <p className="text-red-400 text-[13px] mt-2.5">{error}</p>}
+          {error && <p className="text-red-600 text-[13px] mt-2.5">{error}</p>}
           <button
             type="submit"
             disabled={loading}
-            className="mt-4 w-full rounded-full bg-[var(--cyan)] text-[var(--navy)] font-semibold text-sm py-2.5 disabled:opacity-60 disabled:cursor-not-allowed transition-opacity"
+            className="mt-4 w-full rounded-full bg-[var(--navy)] text-white font-semibold text-sm py-2.5 disabled:opacity-60 disabled:cursor-not-allowed transition-opacity"
           >
             {loading ? "Checking…" : "Enter"}
           </button>

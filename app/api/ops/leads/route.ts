@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
   const confidence = params.get("confidence");
   const serviceFit = params.get("service_fit");
   const businessType = params.get("business_type");
+  const reachability = params.get("reachability");
 
   const supabase = getSupabaseServerClient();
   let query = supabase.from("leads").select("*").order("created_at", { ascending: false });
@@ -27,21 +28,48 @@ export async function GET(request: NextRequest) {
   if (serviceFit) query = query.ilike("service_fit", `%${serviceFit}%`);
   if (businessType) query = query.eq("business_type", businessType);
 
-  const [{ data, error }, { count, error: countError }] = await Promise.all([
+  if (reachability === "has_email") {
+    query = query.not("email", "is", null);
+  } else if (reachability === "has_linkedin") {
+    query = query.not("linkedin_url", "is", null);
+  } else if (reachability === "reachable") {
+    query = query.or("email.not.is.null,linkedin_url.not.is.null");
+  }
+
+  const [
+    { data, error },
+    { count, error: countError },
+    { count: withEmail, error: withEmailError },
+    { count: withLinkedin, error: withLinkedinError },
+    { count: needResearch, error: needResearchError },
+  ] = await Promise.all([
     query,
     supabase.from("leads").select("*", { count: "exact", head: true }),
+    supabase.from("leads").select("*", { count: "exact", head: true }).not("email", "is", null),
+    supabase.from("leads").select("*", { count: "exact", head: true }).not("linkedin_url", "is", null),
+    supabase
+      .from("leads")
+      .select("*", { count: "exact", head: true })
+      .is("email", null)
+      .is("linkedin_url", null),
   ]);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  if (countError) {
-    return NextResponse.json({ error: countError.message }, { status: 500 });
+  const firstError = error ?? countError ?? withEmailError ?? withLinkedinError ?? needResearchError;
+  if (firstError) {
+    return NextResponse.json({ error: firstError.message }, { status: 500 });
   }
 
   const sorted = [...(data ?? [])].sort(
     (a, b) => confidenceRank(a.confidence) - confidenceRank(b.confidence)
   );
 
-  return NextResponse.json({ leads: sorted, total: count ?? sorted.length });
+  return NextResponse.json({
+    leads: sorted,
+    total: count ?? sorted.length,
+    reachabilitySummary: {
+      withEmail: withEmail ?? 0,
+      withLinkedin: withLinkedin ?? 0,
+      needResearch: needResearch ?? 0,
+    },
+  });
 }

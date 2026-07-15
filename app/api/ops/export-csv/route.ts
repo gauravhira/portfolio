@@ -12,6 +12,7 @@ const EXPORT_COLUMNS = [
   "business_type",
   "location",
   "instagram_url",
+  "linkedin_url",
   "business_summary",
   "service_fit",
   "confidence",
@@ -49,6 +50,7 @@ export async function GET(request: NextRequest) {
   const confidence = params.get("confidence");
   const serviceFit = params.get("service_fit");
   const businessType = params.get("business_type");
+  const reachability = params.get("reachability");
 
   const supabase = getSupabaseServerClient();
   let query = supabase
@@ -60,6 +62,14 @@ export async function GET(request: NextRequest) {
   if (confidence) query = query.ilike("confidence", confidence);
   if (serviceFit) query = query.ilike("service_fit", `%${serviceFit}%`);
   if (businessType) query = query.eq("business_type", businessType);
+
+  if (reachability === "has_email") {
+    query = query.not("email", "is", null);
+  } else if (reachability === "has_linkedin") {
+    query = query.not("linkedin_url", "is", null);
+  } else if (reachability === "reachable") {
+    query = query.or("email.not.is.null,linkedin_url.not.is.null");
+  }
 
   const { data, error } = await query;
 
