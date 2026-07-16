@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Lead, LeadStatus } from "@/lib/lead-types";
+import OpsNav from "../OpsNav";
 
 const STATUS_TABS: { label: string; value: LeadStatus | "all" }[] = [
   { label: "All", value: "all" },
@@ -521,6 +522,7 @@ function OpsDashboardContent() {
 
   return (
     <div className="min-h-screen bg-[var(--cream)] text-[var(--navy)] px-6 py-10 md:px-10">
+      <OpsNav />
       <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
         <div>
           <h1 className="font-serif text-2xl mb-1">Ops Dashboard</h1>
