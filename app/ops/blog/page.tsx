@@ -102,6 +102,22 @@ function OpsBlogContent() {
   const [destinationFilter, setDestinationFilter] = useState<BlogPostDestination | "all">("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  async function createPost() {
+    if (!window.confirm("Create a new blank post?")) return;
+    setCreating(true);
+    setError("");
+    try {
+      const res = await fetch("/api/ops/blog-posts", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to create post");
+      const data = await res.json();
+      router.push(`/blog/${data.post.id}`);
+    } catch {
+      setError("Could not create post");
+      setCreating(false);
+    }
+  }
 
   const fetchPosts = useCallback(
     async (filters: { status: BlogPostStatus | "all"; destination: BlogPostDestination | "all" }) => {
@@ -137,13 +153,23 @@ function OpsBlogContent() {
           <h1 className="font-serif text-2xl mb-1">Blog Posts</h1>
           <p className="text-sm text-[var(--muted)]">ops.gauravhira.dev · Content pipeline</p>
         </div>
-        <button
-          type="button"
-          onClick={() => router.push("/dashboard")}
-          className="text-sm text-[var(--navy)] border border-black/20 hover:border-[var(--navy)] rounded-full px-4 py-1.5 h-fit transition-colors"
-        >
-          Back to Leads
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={createPost}
+            disabled={creating}
+            className="text-sm bg-[var(--navy)] text-white font-medium rounded-full px-4 py-1.5 h-fit transition-colors disabled:opacity-50"
+          >
+            {creating ? "Creating…" : "+ New Post"}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard")}
+            className="text-sm text-[var(--navy)] border border-black/20 hover:border-[var(--navy)] rounded-full px-4 py-1.5 h-fit transition-colors"
+          >
+            Back to Leads
+          </button>
+        </div>
       </div>
 
       <div className="sticky top-0 z-20 bg-[var(--cream)] pt-2 pb-3 mb-4 border-b border-black/[0.07] flex flex-row flex-nowrap md:flex-wrap items-start gap-x-8 gap-y-2 w-full overflow-x-auto md:overflow-visible">

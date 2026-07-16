@@ -1,6 +1,15 @@
 export type BlogPostStatus = "idea" | "drafted" | "scheduled" | "published" | "archived";
 export type BlogPostDestination = "portfolio" | "autopost" | "both";
 
+export const BLOG_POST_STATUSES: BlogPostStatus[] = [
+  "idea",
+  "drafted",
+  "scheduled",
+  "published",
+  "archived",
+];
+export const BLOG_POST_DESTINATIONS: BlogPostDestination[] = ["portfolio", "autopost", "both"];
+
 export interface BlogPost {
   id: string;
   title: string;
