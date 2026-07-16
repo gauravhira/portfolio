@@ -2,12 +2,15 @@
 import { useState, useEffect } from "react";
 import { calendlyUrl } from "@/lib/data";
 
+// "/#x" (not bare "#x") so these still resolve correctly from routes other
+// than the homepage, like /blog — a plain "#x" would just no-op there.
 const navItems = [
-  { label: "Services", href: "#services" },
-  { label: "Work", href: "#projects" },
-  { label: "Skills", href: "#skills" },
-  { label: "Experience", href: "#experience" },
-  { label: "Contact", href: "#contact" },
+  { label: "Services", href: "/#services" },
+  { label: "Work", href: "/#projects" },
+  { label: "Skills", href: "/#skills" },
+  { label: "Experience", href: "/#experience" },
+  { label: "Blog", href: "/blog" },
+  { label: "Contact", href: "/#contact" },
 ];
 
 export default function Navbar() {
@@ -27,7 +30,7 @@ export default function Navbar() {
           : "bg-transparent"
       }`}
     >
-      <a href="#" className="font-serif text-[20px] text-[--navy] tracking-[-0.3px]">
+      <a href="/" className="font-serif text-[20px] text-[--navy] tracking-[-0.3px]">
         Gaurav Hira
       </a>
       <ul className="hidden md:flex gap-7 list-none">

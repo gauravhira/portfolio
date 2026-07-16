@@ -119,6 +119,56 @@ function OpsBlogContent() {
     }
   }
 
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [genDestination, setGenDestination] = useState<BlogPostDestination>("portfolio");
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState("");
+  const [genSuccess, setGenSuccess] = useState(false);
+
+  function openGenerateModal() {
+    setNoteText("");
+    setGenDestination("portfolio");
+    setGenError("");
+    setGenSuccess(false);
+    setShowGenerateModal(true);
+  }
+
+  function closeGenerateModal() {
+    if (generating) return;
+    setShowGenerateModal(false);
+  }
+
+  async function submitGenerate() {
+    const note = noteText.trim();
+    if (!note) {
+      setGenError("Describe what you worked on first.");
+      return;
+    }
+    setGenerating(true);
+    setGenError("");
+    setGenSuccess(false);
+    try {
+      const res = await fetch("/api/ops/blog-posts/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note, destination: genDestination }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Generation failed");
+
+      setGenSuccess(true);
+      setGenerating(false);
+      setTimeout(() => {
+        fetchPosts({ status: statusFilter, destination: destinationFilter });
+        setShowGenerateModal(false);
+      }, 2500);
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : "Generation failed");
+      setGenerating(false);
+    }
+  }
+
   const fetchPosts = useCallback(
     async (filters: { status: BlogPostStatus | "all"; destination: BlogPostDestination | "all" }) => {
       setLoading(true);
@@ -154,6 +204,13 @@ function OpsBlogContent() {
           <p className="text-sm text-[var(--muted)]">ops.gauravhira.dev · Content pipeline</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={openGenerateModal}
+            className="text-sm border border-[rgba(1,202,255,0.4)] text-[var(--cyan2)] hover:bg-[rgba(1,202,255,0.08)] font-medium rounded-full px-4 py-1.5 h-fit transition-colors"
+          >
+            Generate from Note
+          </button>
           <button
             type="button"
             onClick={createPost}
@@ -244,6 +301,95 @@ function OpsBlogContent() {
           </Link>
         ))}
       </div>
+
+      {showGenerateModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeGenerateModal();
+          }}
+        >
+          <div className="bg-white border border-black/[0.1] rounded-2xl p-6 w-full max-w-lg">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h2 className="font-serif text-lg leading-tight text-[var(--navy)]">Generate from Note</h2>
+                <p className="text-xs text-[var(--muted)]">Describe what you worked on — Claude drafts a full post</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeGenerateModal}
+                disabled={generating}
+                className="text-[var(--navy)] text-sm rounded-full border border-black/20 hover:border-[var(--navy)] px-4 py-1.5 disabled:opacity-50"
+              >
+                Close
+              </button>
+            </div>
+
+            {genSuccess ? (
+              <div className="flex flex-col gap-3">
+                <p className="text-sm text-emerald-600">
+                  Draft generated — refreshing the list shortly.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    fetchPosts({ status: statusFilter, destination: destinationFilter });
+                    setShowGenerateModal(false);
+                  }}
+                  className="text-sm border border-black/20 text-[var(--navy)] hover:border-[var(--navy)] rounded-full px-4 py-1.5 self-start transition-colors"
+                >
+                  Refresh now
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <label className="text-xs text-[var(--muted)]">
+                  <span>What did you work on?</span>
+                  <textarea
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    disabled={generating}
+                    rows={5}
+                    placeholder="e.g. Shipped a new lead-scoring model that cut false positives by half..."
+                    className="mt-1 w-full rounded-xl bg-black/[0.03] border border-black/[0.12] p-2 text-sm text-[var(--navy)] outline-none focus:border-[var(--navy)] disabled:opacity-60"
+                  />
+                </label>
+
+                <label className="text-xs text-[var(--muted)]">
+                  <span>Destination</span>
+                  <select
+                    value={genDestination}
+                    onChange={(e) => setGenDestination(e.target.value as BlogPostDestination)}
+                    disabled={generating}
+                    className="mt-1 w-full rounded-xl bg-white border border-black/20 px-3 py-1.5 text-sm text-[var(--navy)] outline-none focus:border-[var(--navy)] disabled:opacity-60"
+                  >
+                    <option value="portfolio">Portfolio</option>
+                    <option value="autopost">AutoPost</option>
+                    <option value="both">Both</option>
+                  </select>
+                </label>
+
+                {genError && <p className="text-red-600 text-sm">{genError}</p>}
+
+                {generating ? (
+                  <div className="flex items-center gap-3 text-sm text-[var(--muted)]">
+                    <span className="pulse-dot w-2 h-2 rounded-full bg-[var(--cyan2)]" />
+                    Generating your draft — this can take 10–30+ seconds, don&apos;t close this window…
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={submitGenerate}
+                    className="rounded-full bg-[var(--navy)] text-white text-sm font-medium py-2"
+                  >
+                    Generate
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
