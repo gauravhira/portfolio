@@ -4,15 +4,18 @@ import type { BlogPost } from "./blog-types";
 // Public-facing reads always filter to published + portfolio-visible content —
 // used by the /blog pages and /api/blog routes, and safe to call from a
 // no-auth context since it can never surface drafts or AutoPost-only posts.
-export async function listPublishedPosts(): Promise<BlogPost[]> {
+export async function listPublishedPosts(limit?: number): Promise<BlogPost[]> {
   const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("blog_posts")
     .select("*")
     .eq("status", "published")
     .in("destination", ["portfolio", "both"])
     .order("published_date", { ascending: false });
 
+  if (limit) query = query.limit(limit);
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data ?? [];
 }

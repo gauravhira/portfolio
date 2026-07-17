@@ -96,6 +96,9 @@ body {
 }
 .prose-blog img { max-width: 100%; border-radius: 10px; }
 
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--cream); }
 ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }

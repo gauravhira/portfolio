@@ -3,11 +3,16 @@ import Hero from "@/components/Hero";
 import Services from "@/components/Services";
 import FeaturedProject from "@/components/FeaturedProject";
 import ProjectGrid from "@/components/ProjectGrid";
+import LatestBlogPosts from "@/components/LatestBlogPosts";
 import HowIWork from "@/components/HowIWork";
 import Skills from "@/components/Skills";
 import Experience from "@/components/Experience";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
+
+// Otherwise the "Latest from the Blog" section (and its "0 posts → hidden"
+// check) would be frozen at build-time state until the next redeploy.
+export const revalidate = 60;
 
 export default function Home() {
   return (
@@ -36,6 +41,8 @@ export default function Home() {
             <ProjectGrid />
           </div>
         </section>
+
+        <LatestBlogPosts />
 
         <HowIWork />
         <Skills />
