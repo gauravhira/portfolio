@@ -75,6 +75,8 @@ export default function OpsBlogEditorPage({ params }: { params: Promise<{ id: st
   const [publishedDate, setPublishedDate] = useState("");
   const [fieldSaveStatus, setFieldSaveStatus] = useState<Partial<Record<TextField, FieldSaveStatus>>>({});
   const [statusSaveStatus, setStatusSaveStatus] = useState<FieldSaveStatus>("idle");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const timersRef = useRef<Partial<Record<TextField, ReturnType<typeof setTimeout>>>>({});
   const pendingRef = useRef<Partial<Record<TextField, string>>>({});
@@ -245,6 +247,21 @@ export default function OpsBlogEditorPage({ params }: { params: Promise<{ id: st
     }
   }
 
+  async function deletePost() {
+    if (!post) return;
+    if (!window.confirm(`Delete "${post.title}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/ops/blog-posts/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete post");
+      router.push("/blog");
+    } catch {
+      setDeleteError("Could not delete post — please retry");
+      setDeleting(false);
+    }
+  }
+
   useEffect(() => {
     function flushAllKeepalive() {
       TEXT_FIELDS.forEach((field) => {
@@ -347,8 +364,19 @@ export default function OpsBlogEditorPage({ params }: { params: Promise<{ id: st
               className="mt-1 rounded-xl bg-white border border-black/20 px-3 py-1.5 text-sm text-[var(--navy)] outline-none focus:border-[var(--navy)] block"
             />
           </label>
+
+          <button
+            type="button"
+            onClick={deletePost}
+            disabled={deleting}
+            className="text-sm text-red-600 border border-red-200 hover:bg-red-50 rounded-full px-4 py-1.5 h-fit transition-colors disabled:opacity-50"
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
         </div>
       </div>
+
+      {deleteError && <p className="text-red-600 text-sm mb-4">{deleteError}</p>}
 
       <div className="bg-white border border-black/[0.07] rounded-2xl p-6 mb-6">
         <div className="grid md:grid-cols-2 gap-4 mb-4">

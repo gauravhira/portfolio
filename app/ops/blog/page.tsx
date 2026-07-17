@@ -103,6 +103,25 @@ function OpsBlogContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteMessage, setDeleteMessage] = useState("");
+
+  async function deletePost(post: BlogPost) {
+    if (!window.confirm(`Delete "${post.title}"? This cannot be undone.`)) return;
+    setDeletingId(post.id);
+    setError("");
+    try {
+      const res = await fetch(`/api/ops/blog-posts/${post.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete post");
+      setPosts((prev) => prev.filter((p) => p.id !== post.id));
+      setDeleteMessage("Post deleted");
+      setTimeout(() => setDeleteMessage(""), 2500);
+    } catch {
+      setError("Could not delete post — please retry");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   async function createPost() {
     if (!window.confirm("Create a new blank post?")) return;
@@ -265,6 +284,7 @@ function OpsBlogContent() {
         Showing {posts.length} post{posts.length === 1 ? "" : "s"}
       </p>
 
+      {deleteMessage && <p className="text-emerald-600 text-sm mb-4">{deleteMessage}</p>}
       {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
       {loading && <p className="text-[var(--muted)] text-sm">Loading…</p>}
       {!loading && posts.length === 0 && (
@@ -273,32 +293,44 @@ function OpsBlogContent() {
 
       <div className="flex flex-col gap-4">
         {posts.map((post) => (
-          <Link
+          <div
             key={post.id}
-            href={`/blog/${post.id}`}
             className="bg-white border border-black/[0.07] rounded-2xl p-6 hover:border-[var(--navy)]/30 transition-colors"
           >
-            <div className="flex items-start justify-between gap-4 mb-2 flex-wrap">
-              <div>
-                <h2 className="font-serif text-lg leading-tight text-[var(--navy)]">{post.title}</h2>
-                <p className="text-xs text-[var(--muted)]">/{post.slug}</p>
+            <Link href={`/blog/${post.id}`} className="block">
+              <div className="flex items-start justify-between gap-4 mb-2 flex-wrap">
+                <div>
+                  <h2 className="font-serif text-lg leading-tight text-[var(--navy)]">{post.title}</h2>
+                  <p className="text-xs text-[var(--muted)]">/{post.slug}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <DestinationBadge destination={post.destination} />
+                  <StatusBadge status={post.status} />
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <DestinationBadge destination={post.destination} />
-                <StatusBadge status={post.status} />
+
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted)] mb-3">
+                {post.target_keyword && <span>Keyword: {post.target_keyword}</span>}
+                {post.word_count !== null && <span>{post.word_count} words</span>}
+                <span>Updated {formatTimestamp(post.updated_at)}</span>
               </div>
-            </div>
 
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted)] mb-3">
-              {post.target_keyword && <span>Keyword: {post.target_keyword}</span>}
-              {post.word_count !== null && <span>{post.word_count} words</span>}
-              <span>Updated {formatTimestamp(post.updated_at)}</span>
-            </div>
+              {post.excerpt && (
+                <p className="text-sm text-[var(--navy)]/80 line-clamp-2">{post.excerpt}</p>
+              )}
+            </Link>
 
-            {post.excerpt && (
-              <p className="text-sm text-[var(--navy)]/80 line-clamp-2">{post.excerpt}</p>
-            )}
-          </Link>
+            <div className="flex justify-end mt-4 pt-4 border-t border-black/[0.05]">
+              <button
+                type="button"
+                onClick={() => deletePost(post)}
+                disabled={deletingId === post.id}
+                className="text-xs text-red-600 border border-red-200 hover:bg-red-50 rounded-full px-3 py-1.5 transition-colors disabled:opacity-50"
+              >
+                {deletingId === post.id ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
         ))}
       </div>
 
