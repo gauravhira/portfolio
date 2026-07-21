@@ -211,6 +211,14 @@ function OpsDashboardContent() {
   const [reachabilityFilter, setReachabilityFilter] = useState<string>(
     () => searchParams.get("reachability") || "all"
   );
+  const [page, setPage] = useState<number>(() => {
+    const parsed = parseInt(searchParams.get("page") ?? "1", 10);
+    return parsed > 0 ? parsed : 1;
+  });
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const parsed = parseInt(searchParams.get("pageSize") ?? "25", 10);
+    return [25, 50, 100].includes(parsed) ? parsed : 25;
+  });
   const [businessTypes, setBusinessTypes] = useState<string[]>([]);
   const [reachabilitySummary, setReachabilitySummary] = useState<ReachabilitySummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -302,6 +310,8 @@ function OpsDashboardContent() {
       serviceFit: string;
       businessType: string;
       reachability: string;
+      page: number;
+      pageSize: number;
     }) => {
       setLoading(true);
       setError("");
@@ -312,6 +322,8 @@ function OpsDashboardContent() {
         if (filters.serviceFit !== "all") qs.set("service_fit", filters.serviceFit);
         if (filters.businessType !== "all") qs.set("business_type", filters.businessType);
         if (filters.reachability !== "all") qs.set("reachability", filters.reachability);
+        qs.set("page", String(filters.page));
+        qs.set("pageSize", String(filters.pageSize));
         const query = qs.toString();
         const res = await fetch(`/api/ops/leads${query ? `?${query}` : ""}`);
         if (!res.ok) throw new Error("Failed to load leads");
@@ -335,6 +347,8 @@ function OpsDashboardContent() {
       serviceFit: serviceFitFilter,
       businessType: businessTypeFilter,
       reachability: reachabilityFilter,
+      page,
+      pageSize,
     });
 
     const qs = new URLSearchParams();
@@ -343,6 +357,8 @@ function OpsDashboardContent() {
     if (serviceFitFilter !== "all") qs.set("service_fit", serviceFitFilter);
     if (businessTypeFilter !== "all") qs.set("business_type", businessTypeFilter);
     if (reachabilityFilter !== "all") qs.set("reachability", reachabilityFilter);
+    if (page !== 1) qs.set("page", String(page));
+    if (pageSize !== 25) qs.set("pageSize", String(pageSize));
     const query = qs.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }, [
@@ -351,6 +367,8 @@ function OpsDashboardContent() {
     serviceFitFilter,
     businessTypeFilter,
     reachabilityFilter,
+    page,
+    pageSize,
     fetchLeads,
     router,
     pathname,
@@ -551,6 +569,8 @@ function OpsDashboardContent() {
           serviceFit: serviceFitFilter,
           businessType: businessTypeFilter,
           reachability: reachabilityFilter,
+          page,
+          pageSize,
         });
       }
     } catch {
@@ -587,6 +607,10 @@ function OpsDashboardContent() {
   const expandedLead = leads.find((l) => l.id === expandedLeadId) ?? null;
   const fieldInputClass =
     "mt-1 w-full rounded-xl bg-black/[0.03] border border-black/[0.12] p-2 text-sm text-[var(--navy)] outline-none focus:border-[var(--navy)]";
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(page * pageSize, total);
 
   return (
     <div className="min-h-screen bg-[var(--cream)] text-[var(--navy)] px-6 py-10 md:px-10">
@@ -636,7 +660,10 @@ function OpsDashboardContent() {
             {STATUS_TABS.map((tab) => (
               <button
                 key={tab.value}
-                onClick={() => setStatusFilter(tab.value)}
+                onClick={() => {
+                  setStatusFilter(tab.value);
+                  setPage(1);
+                }}
                 className={pillClass(statusFilter === tab.value) + " whitespace-nowrap"}
               >
                 {tab.label}
@@ -651,7 +678,10 @@ function OpsDashboardContent() {
             {CONFIDENCE_TABS.map((tab) => (
               <button
                 key={tab.value}
-                onClick={() => setConfidenceFilter(tab.value)}
+                onClick={() => {
+                  setConfidenceFilter(tab.value);
+                  setPage(1);
+                }}
                 className={pillClass(confidenceFilter === tab.value) + " whitespace-nowrap"}
               >
                 {tab.label}
@@ -666,7 +696,10 @@ function OpsDashboardContent() {
             {SERVICE_FIT_TABS.map((tab) => (
               <button
                 key={tab.value}
-                onClick={() => setServiceFitFilter(tab.value)}
+                onClick={() => {
+                  setServiceFitFilter(tab.value);
+                  setPage(1);
+                }}
                 className={pillClass(serviceFitFilter === tab.value) + " whitespace-nowrap"}
               >
                 {tab.label}
@@ -679,7 +712,10 @@ function OpsDashboardContent() {
           <p className="text-[11px] uppercase tracking-wide text-[var(--muted)] mb-1.5">Business type</p>
           <select
             value={businessTypeFilter}
-            onChange={(e) => setBusinessTypeFilter(e.target.value)}
+            onChange={(e) => {
+              setBusinessTypeFilter(e.target.value);
+              setPage(1);
+            }}
             className="rounded-xl bg-white border border-black/20 px-3 py-1.5 text-sm text-[var(--navy)] outline-none focus:border-[var(--navy)]"
           >
             <option value="all">All</option>
@@ -697,7 +733,10 @@ function OpsDashboardContent() {
             {REACHABILITY_TABS.map((tab) => (
               <button
                 key={tab.value}
-                onClick={() => setReachabilityFilter(tab.value)}
+                onClick={() => {
+                  setReachabilityFilter(tab.value);
+                  setPage(1);
+                }}
                 className={pillClass(reachabilityFilter === tab.value) + " whitespace-nowrap"}
               >
                 {tab.label}
@@ -716,15 +755,32 @@ function OpsDashboardContent() {
 
       <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
         <p className="text-xs text-[var(--muted)]">
-          Showing {leads.length} of {total} leads
+          Showing {rangeStart}-{rangeEnd} of {total} leads
         </p>
-        <button
-          type="button"
-          onClick={exportCsv}
-          className="text-sm border border-black/20 text-[var(--navy)] hover:border-[var(--navy)] rounded-full px-4 py-1.5 transition-colors"
-        >
-          Export CSV
-        </button>
+        <div className="flex items-center gap-3">
+          <label className="text-xs text-[var(--muted)] flex items-center gap-2">
+            Per page
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(parseInt(e.target.value, 10));
+                setPage(1);
+              }}
+              className="rounded-full bg-white border border-black/20 px-3 py-1 text-sm text-[var(--navy)] outline-none focus:border-[var(--navy)]"
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={exportCsv}
+            className="text-sm border border-black/20 text-[var(--navy)] hover:border-[var(--navy)] rounded-full px-4 py-1.5 transition-colors"
+          >
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
@@ -955,6 +1011,30 @@ function OpsDashboardContent() {
           </div>
         ))}
       </div>
+
+      {!loading && total > 0 && (
+        <div className="flex items-center justify-between gap-4 mt-6">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="text-sm border border-black/20 text-[var(--navy)] hover:border-[var(--navy)] rounded-full px-4 py-1.5 transition-colors disabled:opacity-40"
+          >
+            ← Previous
+          </button>
+          <p className="text-xs text-[var(--muted)]">
+            Page {page} of {totalPages}
+          </p>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="text-sm border border-black/20 text-[var(--navy)] hover:border-[var(--navy)] rounded-full px-4 py-1.5 transition-colors disabled:opacity-40"
+          >
+            Next →
+          </button>
+        </div>
+      )}
 
       {expandedLead && (
         <div

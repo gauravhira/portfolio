@@ -19,8 +19,19 @@ export async function GET(request: NextRequest) {
   const businessType = params.get("business_type");
   const reachability = params.get("reachability");
 
+  const parsedPage = parseInt(params.get("page") ?? "1", 10);
+  const page = parsedPage > 0 ? parsedPage : 1;
+  const parsedPageSize = parseInt(params.get("pageSize") ?? "25", 10);
+  const pageSize = parsedPageSize > 0 ? parsedPageSize : 25;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
   const supabase = getSupabaseServerClient();
-  let query = supabase.from("leads").select("*").order("created_at", { ascending: false });
+  let query = supabase
+    .from("leads")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, to);
 
   query = status ? query.eq("status", status) : query.in("status", ["new", "drafted", "approved"]);
 
@@ -37,14 +48,12 @@ export async function GET(request: NextRequest) {
   }
 
   const [
-    { data, error },
-    { count, error: countError },
+    { data, error, count: filteredTotal },
     { count: withEmail, error: withEmailError },
     { count: withLinkedin, error: withLinkedinError },
     { count: needResearch, error: needResearchError },
   ] = await Promise.all([
     query,
-    supabase.from("leads").select("*", { count: "exact", head: true }),
     supabase.from("leads").select("*", { count: "exact", head: true }).not("email", "is", null),
     supabase.from("leads").select("*", { count: "exact", head: true }).not("linkedin_url", "is", null),
     supabase
@@ -54,18 +63,23 @@ export async function GET(request: NextRequest) {
       .is("linkedin_url", null),
   ]);
 
-  const firstError = error ?? countError ?? withEmailError ?? withLinkedinError ?? needResearchError;
+  const firstError = error ?? withEmailError ?? withLinkedinError ?? needResearchError;
   if (firstError) {
     return NextResponse.json({ error: firstError.message }, { status: 500 });
   }
 
+  // Confidence re-sort only reorders leads within the page that .range()
+  // already sliced by created_at — it never moves a lead across page
+  // boundaries, so pagination stays consistent with this secondary sort.
   const sorted = [...(data ?? [])].sort(
     (a, b) => confidenceRank(a.confidence) - confidenceRank(b.confidence)
   );
 
   return NextResponse.json({
     leads: sorted,
-    total: count ?? sorted.length,
+    total: filteredTotal ?? sorted.length,
+    page,
+    pageSize,
     reachabilitySummary: {
       withEmail: withEmail ?? 0,
       withLinkedin: withLinkedin ?? 0,
