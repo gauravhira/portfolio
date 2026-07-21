@@ -222,6 +222,74 @@ function OpsDashboardContent() {
   const [fieldSaveStatus, setFieldSaveStatus] = useState<FieldSaveState>({});
   const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
 
+  const [showLeadGenModal, setShowLeadGenModal] = useState(false);
+  const [leadGenBusinessType, setLeadGenBusinessType] = useState("");
+  const [leadGenLocations, setLeadGenLocations] = useState("");
+  const [leadGenKeywords, setLeadGenKeywords] = useState("");
+  const [leadGenMaxResults, setLeadGenMaxResults] = useState(20);
+  const [leadGenRunning, setLeadGenRunning] = useState(false);
+  const [leadGenResult, setLeadGenResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const [draftingRunning, setDraftingRunning] = useState(false);
+  const [draftingResult, setDraftingResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  function openLeadGenModal() {
+    setLeadGenBusinessType("");
+    setLeadGenLocations("");
+    setLeadGenKeywords("");
+    setLeadGenMaxResults(20);
+    setLeadGenResult(null);
+    setShowLeadGenModal(true);
+  }
+
+  function closeLeadGenModal() {
+    if (leadGenRunning) return;
+    setShowLeadGenModal(false);
+  }
+
+  async function submitLeadGen() {
+    if (!leadGenBusinessType.trim() || !leadGenLocations.trim()) {
+      setLeadGenResult({ ok: false, message: "Business Type and Locations are required" });
+      return;
+    }
+    setLeadGenRunning(true);
+    setLeadGenResult(null);
+    try {
+      const res = await fetch("/api/ops/trigger-leadgen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessType: leadGenBusinessType.trim(),
+          locations: leadGenLocations.trim(),
+          keywords: leadGenKeywords.trim(),
+          maxResults: leadGenMaxResults,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to trigger lead gen");
+      setLeadGenResult({ ok: true, message: data.message || "Lead gen triggered" });
+    } catch (err) {
+      setLeadGenResult({ ok: false, message: err instanceof Error ? err.message : "Failed to trigger lead gen" });
+    } finally {
+      setLeadGenRunning(false);
+    }
+  }
+
+  async function runDrafting() {
+    setDraftingRunning(true);
+    setDraftingResult(null);
+    try {
+      const res = await fetch("/api/ops/trigger-drafting", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to trigger drafting");
+      setDraftingResult({ ok: true, message: data.message || "Drafting triggered" });
+    } catch (err) {
+      setDraftingResult({ ok: false, message: err instanceof Error ? err.message : "Failed to trigger drafting" });
+    } finally {
+      setDraftingRunning(false);
+    }
+  }
+
   // Refs (not state) because timers and in-flight-edit tracking must be readable
   // synchronously from blur/unmount/beforeunload handlers without waiting on a render.
   const timersRef = useRef<Record<string, Partial<Record<EditableField, ReturnType<typeof setTimeout>>>>>({});
@@ -528,8 +596,23 @@ function OpsDashboardContent() {
           <h1 className="font-serif text-2xl mb-1">Ops Dashboard</h1>
           <p className="text-sm text-[var(--muted)]">ops.gauravhira.dev · Lead review</p>
         </div>
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 flex-wrap">
           <HunterUsageWidget />
+          <button
+            type="button"
+            onClick={openLeadGenModal}
+            className="text-sm border border-[rgba(1,202,255,0.4)] text-[var(--cyan2)] hover:bg-[rgba(1,202,255,0.08)] font-medium rounded-full px-4 py-1.5 h-fit transition-colors"
+          >
+            Run Lead Gen
+          </button>
+          <button
+            type="button"
+            onClick={runDrafting}
+            disabled={draftingRunning}
+            className="text-sm border border-[rgba(1,202,255,0.4)] text-[var(--cyan2)] hover:bg-[rgba(1,202,255,0.08)] font-medium rounded-full px-4 py-1.5 h-fit transition-colors disabled:opacity-50"
+          >
+            {draftingRunning ? "Running…" : "Run Drafting"}
+          </button>
           <button
             type="button"
             onClick={logout}
@@ -539,6 +622,12 @@ function OpsDashboardContent() {
           </button>
         </div>
       </div>
+
+      {draftingResult && (
+        <p className={`text-sm mb-4 ${draftingResult.ok ? "text-emerald-600" : "text-red-600"}`}>
+          {draftingResult.message}
+        </p>
+      )}
 
       <div className="sticky top-0 z-20 bg-[var(--cream)] pt-2 pb-3 mb-2 border-b border-black/[0.07] flex flex-row flex-nowrap md:flex-wrap items-start gap-x-6 md:gap-x-8 gap-y-2 w-full overflow-x-auto md:overflow-visible">
         <div className="flex-shrink-0">
@@ -941,6 +1030,102 @@ function OpsDashboardContent() {
                   className={fieldInputClass}
                 />
               </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLeadGenModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeLeadGenModal();
+          }}
+        >
+          <div className="bg-white border border-black/[0.1] rounded-2xl p-6 w-full max-w-lg">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h2 className="font-serif text-lg leading-tight text-[var(--navy)]">Run Lead Gen</h2>
+                <p className="text-xs text-[var(--muted)]">Triggers the n8n lead-gen workflow</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeLeadGenModal}
+                disabled={leadGenRunning}
+                className="text-[var(--navy)] text-sm rounded-full border border-black/20 hover:border-[var(--navy)] px-4 py-1.5 disabled:opacity-50"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <label className="text-xs text-[var(--muted)]">
+                <span>Business Type</span>
+                <input
+                  type="text"
+                  value={leadGenBusinessType}
+                  onChange={(e) => setLeadGenBusinessType(e.target.value)}
+                  disabled={leadGenRunning}
+                  placeholder="e.g. dentists"
+                  className={`${fieldInputClass} disabled:opacity-60`}
+                />
+              </label>
+
+              <label className="text-xs text-[var(--muted)]">
+                <span>Locations</span>
+                <input
+                  type="text"
+                  value={leadGenLocations}
+                  onChange={(e) => setLeadGenLocations(e.target.value)}
+                  disabled={leadGenRunning}
+                  placeholder="e.g. Austin, TX"
+                  className={`${fieldInputClass} disabled:opacity-60`}
+                />
+              </label>
+
+              <label className="text-xs text-[var(--muted)]">
+                <span>Keywords (optional)</span>
+                <input
+                  type="text"
+                  value={leadGenKeywords}
+                  onChange={(e) => setLeadGenKeywords(e.target.value)}
+                  disabled={leadGenRunning}
+                  className={`${fieldInputClass} disabled:opacity-60`}
+                />
+              </label>
+
+              <label className="text-xs text-[var(--muted)]">
+                <span>Max Results</span>
+                <input
+                  type="number"
+                  value={leadGenMaxResults}
+                  onChange={(e) => setLeadGenMaxResults(parseInt(e.target.value, 10) || 0)}
+                  disabled={leadGenRunning}
+                  min={1}
+                  className={`${fieldInputClass} disabled:opacity-60`}
+                />
+              </label>
+
+              {leadGenResult && (
+                <p className={`text-sm ${leadGenResult.ok ? "text-emerald-600" : "text-red-600"}`}>
+                  {leadGenResult.message}
+                </p>
+              )}
+
+              {leadGenRunning ? (
+                <div className="flex items-center gap-3 text-sm text-[var(--muted)]">
+                  <span className="pulse-dot w-2 h-2 rounded-full bg-[var(--cyan2)]" />
+                  Running lead gen…
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={submitLeadGen}
+                  className="rounded-full bg-[var(--navy)] text-white text-sm font-medium py-2"
+                >
+                  Run
+                </button>
+              )}
             </div>
           </div>
         </div>
