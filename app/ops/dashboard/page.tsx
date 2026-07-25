@@ -12,6 +12,7 @@ const STATUS_TABS: { label: string; value: LeadStatus | "all" }[] = [
   { label: "Approved", value: "approved" },
   { label: "Sent", value: "sent" },
   { label: "Rejected", value: "rejected" },
+  { label: "Send Failed", value: "send_failed" },
 ];
 
 const CONFIDENCE_TABS: { label: string; value: string }[] = [
@@ -44,6 +45,46 @@ function pillClass(active: boolean) {
       ? "bg-[var(--navy)] text-white border-[var(--navy)] font-medium"
       : "border-black/20 text-[var(--navy)] hover:border-[var(--navy)]"
   }`;
+}
+
+// Formats in the LEAD's own timezone (not the browser's) so "9am" in the
+// scheduler actually means 9am for that lead's recipient, regardless of
+// where the person viewing the dashboard happens to be sitting.
+function formatScheduled(value: string | null, timezone: string | null) {
+  if (!value) return null;
+  const formatted = new Date(value).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: timezone || "America/New_York",
+  });
+  return `${formatted} (${timezone || "America/New_York"})`;
+}
+
+// Same tinted-badge formula as the blog dashboard's status badges —
+// "approved" reads as queued/pending (gold, like "scheduled" there) and
+// "sent" reads as done (cyan2, like "published" there), so the two are
+// visually distinct at a glance instead of both being a flat gray pill.
+const LEAD_STATUS_BADGE_STYLES: Record<string, { bg: string; border: string; color: string }> = {
+  new: { bg: "rgba(12,15,20,0.04)", border: "rgba(12,15,20,0.14)", color: "var(--muted)" },
+  drafted: { bg: "rgba(12,15,20,0.06)", border: "rgba(12,15,20,0.18)", color: "var(--navy)" },
+  approved: { bg: "rgba(218,133,11,0.12)", border: "rgba(218,133,11,0.35)", color: "var(--gold)" },
+  sent: { bg: "rgba(1,202,255,0.12)", border: "rgba(1,202,255,0.35)", color: "var(--cyan2)" },
+  rejected: { bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.25)", color: "#DC2626" },
+  // Distinct warning orange (not the same red as "rejected") — send_failed
+  // means "needs attention/retry," not "final/denied."
+  send_failed: { bg: "rgba(234,88,12,0.12)", border: "rgba(234,88,12,0.35)", color: "#C2410C" },
+};
+
+function LeadStatusBadge({ status }: { status: LeadStatus }) {
+  const style = LEAD_STATUS_BADGE_STYLES[status] ?? LEAD_STATUS_BADGE_STYLES.new;
+  return (
+    <span
+      className="text-[11px] uppercase tracking-wide px-2 py-1 rounded-full border whitespace-nowrap font-medium"
+      style={{ background: style.bg, borderColor: style.border, color: style.color }}
+    >
+      {status}
+    </span>
+  );
 }
 
 type EditableField = "email_subject" | "email_body" | "linkedin_message" | "linkedin_url";
@@ -229,6 +270,8 @@ function OpsDashboardContent() {
   const [sendResults, setSendResults] = useState<Record<string, SendResult>>({});
   const [fieldSaveStatus, setFieldSaveStatus] = useState<FieldSaveState>({});
   const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkApproving, setBulkApproving] = useState(false);
 
   const [showLeadGenModal, setShowLeadGenModal] = useState(false);
   const [leadGenBusinessType, setLeadGenBusinessType] = useState("");
@@ -540,6 +583,61 @@ function OpsDashboardContent() {
     }
   }
 
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const allSelected = leads.length > 0 && leads.every((l) => prev.has(l.id));
+      return allSelected ? new Set() : new Set(leads.map((l) => l.id));
+    });
+  }
+
+  // Approving no longer just flips status — it hands the lead(s) off to
+  // /api/ops/leads/approve, which computes a jittered scheduled_send_at per
+  // lead (grouped/queued by timezone) instead of marking them send-ready now.
+  async function approveLeads(leadIds: string[]) {
+    if (leadIds.length === 0) return;
+    const isBulk = leadIds.length > 1;
+    if (isBulk) setBulkApproving(true);
+    else setBusyId(leadIds[0]);
+    setError("");
+    try {
+      const res = await fetch("/api/ops/leads/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadIds }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to approve leads");
+
+      const scheduled: { id: string; scheduled_send_at: string; status: LeadStatus }[] =
+        data.scheduled ?? [];
+      setLeads((prev) =>
+        prev.map((l) => {
+          const match = scheduled.find((s) => s.id === l.id);
+          return match ? { ...l, status: match.status, scheduled_send_at: match.scheduled_send_at } : l;
+        })
+      );
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        leadIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve leads");
+    } finally {
+      if (isBulk) setBulkApproving(false);
+      else setBusyId(null);
+    }
+  }
+
   async function sendLead(lead: Lead) {
     const confirmed = window.confirm(
       `Send this email to ${lead.email}? This sends a real message and can't be undone.`
@@ -789,6 +887,28 @@ function OpsDashboardContent() {
         <p className="text-[var(--muted)] text-sm">No leads in this view.</p>
       )}
 
+      {!loading && leads.length > 0 && (
+        <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+          <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
+            <input
+              type="checkbox"
+              checked={leads.length > 0 && leads.every((l) => selectedIds.has(l.id))}
+              onChange={toggleSelectAll}
+              className="w-4 h-4 accent-[var(--navy)]"
+            />
+            Select all on page
+          </label>
+          <button
+            type="button"
+            disabled={selectedIds.size === 0 || bulkApproving}
+            onClick={() => approveLeads([...selectedIds])}
+            className="rounded-full bg-[var(--navy)] text-white text-sm font-medium px-4 py-1.5 disabled:opacity-50"
+          >
+            {bulkApproving ? "Scheduling…" : `Approve Selected (${selectedIds.size})`}
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col gap-4">
         {leads.map((lead, index) => (
           <div
@@ -797,6 +917,12 @@ function OpsDashboardContent() {
           >
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(lead.id)}
+                  onChange={() => toggleSelected(lead.id)}
+                  className="mt-1.5 w-4 h-4 accent-[var(--navy)] flex-shrink-0"
+                />
                 <span className="text-[var(--muted)] text-sm pt-0.5">#{index + 1}</span>
                 <div>
                   <h2 className="font-serif text-lg leading-tight text-[var(--navy)]">{lead.name}</h2>
@@ -805,9 +931,32 @@ function OpsDashboardContent() {
                   </p>
                 </div>
               </div>
-              <span className="text-[11px] uppercase tracking-wide px-2 py-1 rounded-full bg-black/[0.04] border border-black/[0.08] text-[var(--navy)] whitespace-nowrap">
-                {lead.status}
-              </span>
+              <div className="flex flex-col items-end gap-1 max-w-[260px]">
+                <LeadStatusBadge status={lead.status} />
+                {lead.status === "approved" && lead.scheduled_send_at && (
+                  <span className="text-[11px] text-[var(--muted)] whitespace-nowrap text-right">
+                    Scheduled: {formatScheduled(lead.scheduled_send_at, lead.timezone)}
+                  </span>
+                )}
+                {lead.status === "send_failed" && lead.last_error && (
+                  <>
+                    {lead.last_error.length > 80 ? (
+                      <details className="text-right w-full">
+                        <summary className="text-[11px] text-[#C2410C] cursor-pointer list-none truncate">
+                          ⚠ {lead.last_error.slice(0, 80)}…
+                        </summary>
+                        <p className="mt-1 text-[11px] text-[#C2410C] text-left whitespace-pre-wrap">
+                          {lead.last_error}
+                        </p>
+                      </details>
+                    ) : (
+                      <span className="text-[11px] text-[#C2410C] text-right" title={lead.last_error}>
+                        ⚠ {lead.last_error}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="grid lg:grid-cols-3 gap-6">
@@ -965,10 +1114,10 @@ function OpsDashboardContent() {
             <div className="flex gap-2 pt-4 mt-4 border-t border-black/[0.07]">
               <button
                 disabled={busyId === lead.id}
-                onClick={() => patchLead(lead.id, { status: "approved" })}
+                onClick={() => approveLeads([lead.id])}
                 className="flex-1 rounded-full bg-[var(--navy)] text-white text-sm font-medium py-2 disabled:opacity-50"
               >
-                Approve
+                {busyId === lead.id ? "Scheduling…" : "Approve"}
               </button>
               <button
                 disabled={busyId === lead.id}

@@ -1,4 +1,4 @@
-export type LeadStatus = "new" | "drafted" | "approved" | "sent" | "rejected";
+export type LeadStatus = "new" | "drafted" | "approved" | "sent" | "rejected" | "send_failed";
 
 export interface Lead {
   id: string;
@@ -6,6 +6,10 @@ export interface Lead {
   category: string | null;
   business_type: string | null;
   location: string | null;
+  address: string | null;
+  timezone: string | null;
+  scheduled_send_at: string | null;
+  last_error: string | null;
   website: string | null;
   email: string | null;
   instagram_url: string | null;

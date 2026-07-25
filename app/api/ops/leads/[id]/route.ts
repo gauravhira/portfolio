@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import type { LeadStatus } from "@/lib/lead-types";
 
-const ALLOWED_STATUSES: LeadStatus[] = ["drafted", "approved", "sent", "rejected"];
+const ALLOWED_STATUSES: LeadStatus[] = ["drafted", "approved", "sent", "rejected", "send_failed"];
 
 export async function PATCH(
   request: NextRequest,

@@ -33,7 +33,9 @@ export async function GET(request: NextRequest) {
     .order("created_at", { ascending: false })
     .range(from, to);
 
-  query = status ? query.eq("status", status) : query.in("status", ["new", "drafted", "approved"]);
+  query = status
+    ? query.eq("status", status)
+    : query.in("status", ["new", "drafted", "approved", "send_failed"]);
 
   if (confidence) query = query.ilike("confidence", confidence);
   if (serviceFit) query = query.ilike("service_fit", `%${serviceFit}%`);
