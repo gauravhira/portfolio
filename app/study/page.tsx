@@ -2,9 +2,71 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { PublicQuizQuestion, SubmitAnswerResult, TopicStat } from "@/lib/quiz-types";
+import type { PublicQuizQuestion, SubmitAnswerResult, TodayAttempt, TopicStat } from "@/lib/quiz-types";
 
 const NEEDS_REVIEW_THRESHOLD = 0.6;
+
+function computeTopicStats(attempts: { topic: string; isCorrect: boolean }[]): TopicStat[] {
+  const byTopic = new Map<string, { correct: number; total: number }>();
+  for (const a of attempts) {
+    const entry = byTopic.get(a.topic) ?? { correct: 0, total: 0 };
+    entry.total += 1;
+    if (a.isCorrect) entry.correct += 1;
+    byTopic.set(a.topic, entry);
+  }
+  return [...byTopic.entries()]
+    .map(([topic, { correct, total }]) => ({
+      topic,
+      correct,
+      total,
+      accuracy: total > 0 ? correct / total : 0,
+    }))
+    .sort((a, b) => a.accuracy - b.accuracy);
+}
+
+// today's date is the string /api/study/daily-quiz selected against — derive
+// "tomorrow" from it rather than the client clock to avoid timezone drift.
+function nextDayStr(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function TopicStatRows({ stats, showNeedsReview = true }: { stats: TopicStat[]; showNeedsReview?: boolean }) {
+  return (
+    <div className="flex flex-col gap-2">
+      {stats.map((s) => {
+        const needsReview = showNeedsReview && s.accuracy < NEEDS_REVIEW_THRESHOLD;
+        return (
+          <div
+            key={s.topic}
+            className="flex items-center justify-between gap-4 rounded-xl px-4 py-2.5 border"
+            style={
+              needsReview
+                ? { background: "rgba(220,38,38,0.06)", borderColor: "rgba(220,38,38,0.25)" }
+                : { background: "rgba(12,15,20,0.03)", borderColor: "rgba(12,15,20,0.08)" }
+            }
+          >
+            <div>
+              <p className="text-sm text-[var(--navy)] font-medium">{s.topic}</p>
+              <p className="text-xs text-[var(--muted)]">
+                {s.correct}/{s.total} correct
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {needsReview && (
+                <span className="text-[10px] uppercase tracking-wide px-2 py-1 rounded-full bg-red-100 text-red-700 whitespace-nowrap">
+                  Needs review
+                </span>
+              )}
+              <span className="font-serif text-lg text-[var(--navy)]">{Math.round(s.accuracy * 100)}%</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function optionClass(
   index: number,
@@ -36,6 +98,7 @@ export default function StudyPage() {
   const router = useRouter();
 
   const [questions, setQuestions] = useState<PublicQuizQuestion[] | null>(null);
+  const [quizDate, setQuizDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -50,15 +113,54 @@ export default function StudyPage() {
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState("");
 
+  // Seeded from today's already-recorded attempts on load, then appended to
+  // as the user answers — drives the "today" per-topic breakdown on the
+  // completed-state screen regardless of whether the day was already fully
+  // attempted before this page load or just finished in this session.
+  const [todayTopicAttempts, setTodayTopicAttempts] = useState<{ topic: string; isCorrect: boolean }[]>([]);
+
   useEffect(() => {
-    fetch("/api/study/daily-quiz")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load today's quiz");
-        return res.json();
-      })
-      .then((data) => setQuestions(data.questions ?? []))
-      .catch(() => setError("Could not load today's quiz"))
-      .finally(() => setLoading(false));
+    async function load() {
+      try {
+        const [quizRes, attemptsRes] = await Promise.all([
+          fetch("/api/study/daily-quiz"),
+          fetch("/api/study/today-attempts"),
+        ]);
+        if (!quizRes.ok) throw new Error("Failed to load today's quiz");
+        if (!attemptsRes.ok) throw new Error("Failed to load today's progress");
+
+        const quizData = await quizRes.json();
+        const attemptsData = await attemptsRes.json();
+        const loadedQuestions: PublicQuizQuestion[] = quizData.questions ?? [];
+        const todaysAttempts: TodayAttempt[] = attemptsData.attempts ?? [];
+
+        setQuestions(loadedQuestions);
+        setQuizDate(quizData.date ?? new Date().toISOString().slice(0, 10));
+
+        // Only attempts against questions actually in today's deterministic
+        // set count — this is the same selection /api/study/daily-quiz just
+        // returned, so it's stable for the rest of the day.
+        const todaysQuestionIds = new Set(loadedQuestions.map((q) => q.id));
+        const relevantAttempts = todaysAttempts.filter((a) => todaysQuestionIds.has(a.questionId));
+        const attemptedIds = new Set(relevantAttempts.map((a) => a.questionId));
+
+        setTodayTopicAttempts(relevantAttempts.map((a) => ({ topic: a.topic, isCorrect: a.isCorrect })));
+        setScore(relevantAttempts.filter((a) => a.isCorrect).length);
+
+        if (loadedQuestions.length > 0 && attemptedIds.size >= loadedQuestions.length) {
+          setFinished(true);
+          loadStats();
+        } else if (attemptedIds.size > 0) {
+          const resumeIndex = loadedQuestions.findIndex((q) => !attemptedIds.has(q.id));
+          setCurrentIndex(resumeIndex === -1 ? 0 : resumeIndex);
+        }
+      } catch {
+        setError("Could not load today's quiz");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
 
   async function submitAnswer() {
@@ -76,6 +178,7 @@ export default function StudyPage() {
       const data: SubmitAnswerResult = await res.json();
       setResult(data);
       if (data.isCorrect) setScore((s) => s + 1);
+      setTodayTopicAttempts((prev) => [...prev, { topic: question.topic, isCorrect: data.isCorrect }]);
     } catch {
       setError("Could not submit answer — please retry");
     } finally {
@@ -140,15 +243,21 @@ export default function StudyPage() {
   }
 
   if (finished) {
+    const todayStats = computeTopicStats(todayTopicAttempts);
     return (
       <div className="min-h-screen bg-[var(--cream)] text-[var(--navy)] px-6 py-10 md:px-10">
         <div className="max-w-[600px] mx-auto">
           <div className="flex items-start justify-between gap-4 mb-8">
             <div>
-              <h1 className="font-serif text-2xl mb-1">Session complete</h1>
+              <h1 className="font-serif text-2xl mb-1">Today's quiz complete</h1>
               <p className="text-sm text-[var(--muted)]">
                 Score: {score} / {questions.length}
               </p>
+              {quizDate && (
+                <p className="text-xs text-[var(--muted)] mt-1">
+                  Next set unlocks {nextDayStr(quizDate)}.
+                </p>
+              )}
             </div>
             <button
               type="button"
@@ -159,6 +268,15 @@ export default function StudyPage() {
             </button>
           </div>
 
+          <div className="bg-white border border-black/[0.07] rounded-2xl p-6 mb-6">
+            <h2 className="font-serif text-lg mb-4">Today's accuracy by topic</h2>
+            {todayStats.length === 0 ? (
+              <p className="text-sm text-[var(--muted)]">No attempts recorded today.</p>
+            ) : (
+              <TopicStatRows stats={todayStats} showNeedsReview={false} />
+            )}
+          </div>
+
           <div className="bg-white border border-black/[0.07] rounded-2xl p-6">
             <h2 className="font-serif text-lg mb-4">Accuracy by topic (all time)</h2>
             {statsLoading && <p className="text-sm text-[var(--muted)]">Loading…</p>}
@@ -166,47 +284,7 @@ export default function StudyPage() {
             {stats && stats.length === 0 && (
               <p className="text-sm text-[var(--muted)]">No attempts recorded yet.</p>
             )}
-            {stats && stats.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {stats.map((s) => {
-                  const needsReview = s.accuracy < NEEDS_REVIEW_THRESHOLD;
-                  return (
-                    <div
-                      key={s.topic}
-                      className="flex items-center justify-between gap-4 rounded-xl px-4 py-2.5 border"
-                      style={
-                        needsReview
-                          ? {
-                              background: "rgba(220,38,38,0.06)",
-                              borderColor: "rgba(220,38,38,0.25)",
-                            }
-                          : {
-                              background: "rgba(12,15,20,0.03)",
-                              borderColor: "rgba(12,15,20,0.08)",
-                            }
-                      }
-                    >
-                      <div>
-                        <p className="text-sm text-[var(--navy)] font-medium">{s.topic}</p>
-                        <p className="text-xs text-[var(--muted)]">
-                          {s.correct}/{s.total} correct
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {needsReview && (
-                          <span className="text-[10px] uppercase tracking-wide px-2 py-1 rounded-full bg-red-100 text-red-700 whitespace-nowrap">
-                            Needs review
-                          </span>
-                        )}
-                        <span className="font-serif text-lg text-[var(--navy)]">
-                          {Math.round(s.accuracy * 100)}%
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {stats && stats.length > 0 && <TopicStatRows stats={stats} />}
           </div>
         </div>
       </div>

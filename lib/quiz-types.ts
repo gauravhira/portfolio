@@ -39,3 +39,12 @@ export interface TopicStat {
   total: number;
   accuracy: number;
 }
+
+// A single quiz_attempts row for today, joined with its question's topic —
+// used by /study to detect an already-complete day and to resume mid-quiz.
+export interface TodayAttempt {
+  questionId: string;
+  selectedIndex: number;
+  isCorrect: boolean;
+  topic: string;
+}
