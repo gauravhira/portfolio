@@ -43,6 +43,28 @@ export function proxy(request: NextRequest) {
     }
   }
 
+  // /study lives on the main domain (no subdomain rewrite, unlike /ops) but
+  // reuses the exact same session cookie/verification — logging in here just
+  // sets ops_session scoped to this host instead of the ops. subdomain.
+  if (pathname.startsWith("/api/study/") && pathname !== "/api/study/auth" && pathname !== "/api/study/logout") {
+    const token = request.cookies.get(SESSION_COOKIE)?.value;
+    if (!token || !verifySessionToken(token)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
+
+  if (pathname === "/study" || pathname.startsWith("/study/")) {
+    const isPublic = pathname === "/study/login";
+    if (!isPublic) {
+      const token = request.cookies.get(SESSION_COOKIE)?.value;
+      if (!token || !verifySessionToken(token)) {
+        return NextResponse.redirect(new URL("/study/login", request.url));
+      }
+    }
+    return NextResponse.next();
+  }
+
   return NextResponse.next();
 }
 
