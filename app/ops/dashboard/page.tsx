@@ -37,6 +37,27 @@ const REACHABILITY_TABS: { label: string; value: string }[] = [
   { label: "Reachable", value: "reachable" },
 ];
 
+const LOCATION_PRESETS: Record<"USA" | "UAE" | "India", string[]> = {
+  USA: [
+    "New York NY",
+    "Los Angeles CA",
+    "Chicago IL",
+    "Houston TX",
+    "San Francisco CA",
+    "Seattle WA",
+    "Austin TX",
+    "Miami FL",
+    "Denver CO",
+    "Phoenix AZ",
+    "Boston MA",
+    "Atlanta GA",
+    "Portland OR",
+  ],
+  UAE: ["Dubai", "Abu Dhabi", "Ajman"],
+  India: ["Mumbai", "Bengaluru", "Chennai", "Hyderabad", "Pune", "Delhi"],
+};
+const MAX_LOCATIONS = 8;
+
 // Shared pill style: light outline by default, solid navy when active — matches
 // the portfolio's own "selected chip" convention (see ProjectGrid tech tags).
 function pillClass(active: boolean) {
@@ -281,6 +302,32 @@ function OpsDashboardContent() {
   const [leadGenMaxResults, setLeadGenMaxResults] = useState(20);
   const [leadGenRunning, setLeadGenRunning] = useState(false);
   const [leadGenResult, setLeadGenResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [leadGenCountry, setLeadGenCountry] = useState<"USA" | "UAE" | "India" | "Custom">("Custom");
+  const [leadGenSelectedCities, setLeadGenSelectedCities] = useState<Set<string>>(new Set());
+  const [leadGenCustomLocation, setLeadGenCustomLocation] = useState("");
+  const [leadGenSkipHunter, setLeadGenSkipHunter] = useState(false);
+
+  const leadGenCustomLocationEntries = leadGenCustomLocation
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const leadGenLocationCount =
+    leadGenCountry === "Custom"
+      ? leadGenLocations.split(",").map((s) => s.trim()).filter(Boolean).length
+      : leadGenSelectedCities.size + leadGenCustomLocationEntries.length;
+  const leadGenAtLocationCap = leadGenLocationCount >= MAX_LOCATIONS;
+  const leadGenEffectiveLocations =
+    leadGenCountry === "Custom"
+      ? leadGenLocations.trim()
+      : [...leadGenSelectedCities, ...leadGenCustomLocationEntries].join(", ");
+  const leadGenBusinessTypeCount = leadGenBusinessType
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean).length;
+  const leadGenKeywordsList = leadGenKeywords.split(",").map((s) => s.trim()).filter(Boolean);
+  const leadGenKeywordsCount = leadGenKeywordsList.length > 0 ? leadGenKeywordsList.length : 1;
+  const leadGenEstimatedSearches =
+    leadGenBusinessTypeCount * leadGenLocationCount * leadGenKeywordsCount;
 
   const [draftingRunning, setDraftingRunning] = useState(false);
   const [draftingResult, setDraftingResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -291,6 +338,10 @@ function OpsDashboardContent() {
     setLeadGenKeywords("");
     setLeadGenMaxResults(20);
     setLeadGenResult(null);
+    setLeadGenCountry("Custom");
+    setLeadGenSelectedCities(new Set());
+    setLeadGenCustomLocation("");
+    setLeadGenSkipHunter(false);
     setShowLeadGenModal(true);
   }
 
@@ -299,8 +350,27 @@ function OpsDashboardContent() {
     setShowLeadGenModal(false);
   }
 
+  function handleLeadGenCountryChange(value: "USA" | "UAE" | "India" | "Custom") {
+    setLeadGenCountry(value);
+    setLeadGenSelectedCities(new Set());
+    setLeadGenCustomLocation("");
+  }
+
+  function toggleLeadGenCity(city: string) {
+    setLeadGenSelectedCities((prev) => {
+      const next = new Set(prev);
+      if (next.has(city)) {
+        next.delete(city);
+      } else {
+        if (next.size + leadGenCustomLocationEntries.length >= MAX_LOCATIONS) return prev;
+        next.add(city);
+      }
+      return next;
+    });
+  }
+
   async function submitLeadGen() {
-    if (!leadGenBusinessType.trim() || !leadGenLocations.trim()) {
+    if (!leadGenBusinessType.trim() || !leadGenEffectiveLocations) {
       setLeadGenResult({ ok: false, message: "Business Type and Locations are required" });
       return;
     }
@@ -312,9 +382,10 @@ function OpsDashboardContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           businessType: leadGenBusinessType.trim(),
-          locations: leadGenLocations.trim(),
+          locations: leadGenEffectiveLocations,
           keywords: leadGenKeywords.trim(),
           maxResults: leadGenMaxResults,
+          skipHunter: leadGenSkipHunter,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1362,16 +1433,70 @@ function OpsDashboardContent() {
               </label>
 
               <label className="text-xs text-[var(--muted)]">
-                <span>Locations</span>
-                <input
-                  type="text"
-                  value={leadGenLocations}
-                  onChange={(e) => setLeadGenLocations(e.target.value)}
+                <span>Country</span>
+                <select
+                  value={leadGenCountry}
+                  onChange={(e) =>
+                    handleLeadGenCountryChange(e.target.value as "USA" | "UAE" | "India" | "Custom")
+                  }
                   disabled={leadGenRunning}
-                  placeholder="e.g. Austin, TX"
                   className={`${fieldInputClass} disabled:opacity-60`}
-                />
+                >
+                  <option value="Custom">Custom</option>
+                  <option value="USA">USA</option>
+                  <option value="UAE">UAE</option>
+                  <option value="India">India</option>
+                </select>
               </label>
+
+              {leadGenCountry === "Custom" ? (
+                <label className="text-xs text-[var(--muted)]">
+                  <span>Locations</span>
+                  <input
+                    type="text"
+                    value={leadGenLocations}
+                    onChange={(e) => setLeadGenLocations(e.target.value)}
+                    disabled={leadGenRunning}
+                    placeholder="e.g. Austin, TX"
+                    className={`${fieldInputClass} disabled:opacity-60`}
+                  />
+                </label>
+              ) : (
+                <div className="text-xs text-[var(--muted)]">
+                  <span>Locations</span>
+                  <div className="mt-1 flex flex-col gap-1.5 max-h-48 overflow-y-auto rounded-xl bg-black/[0.03] border border-black/[0.12] p-2">
+                    {LOCATION_PRESETS[leadGenCountry].map((city) => {
+                      const checked = leadGenSelectedCities.has(city);
+                      const disabled = leadGenRunning || (!checked && leadGenAtLocationCap);
+                      return (
+                        <label key={city} className="flex items-center gap-2 text-sm text-[var(--navy)]">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleLeadGenCity(city)}
+                            disabled={disabled}
+                            className="w-4 h-4 accent-[var(--navy)] disabled:opacity-40"
+                          />
+                          {city}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {leadGenAtLocationCap && (
+                    <p className="mt-1 text-[11px] text-[var(--muted)]">
+                      Max 8 locations — uncheck one to add another.
+                    </p>
+                  )}
+                  <input
+                    type="text"
+                    value={leadGenCustomLocation}
+                    onChange={(e) => setLeadGenCustomLocation(e.target.value)}
+                    disabled={leadGenRunning}
+                    placeholder="Add custom location(s), comma-separated"
+                    className={`${fieldInputClass} disabled:opacity-60`}
+                  />
+                </div>
+              )}
 
               <label className="text-xs text-[var(--muted)]">
                 <span>Keywords (optional)</span>
@@ -1394,6 +1519,20 @@ function OpsDashboardContent() {
                   min={1}
                   className={`${fieldInputClass} disabled:opacity-60`}
                 />
+                <p className="mt-1 text-[11px] text-[var(--muted)]">
+                  ~{leadGenEstimatedSearches} searches will run
+                </p>
+              </label>
+
+              <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                <input
+                  type="checkbox"
+                  checked={leadGenSkipHunter}
+                  onChange={(e) => setLeadGenSkipHunter(e.target.checked)}
+                  disabled={leadGenRunning}
+                  className="w-4 h-4 accent-[var(--navy)]"
+                />
+                Skip Hunter enrichment (for AutoPost-only runs)
               </label>
 
               {leadGenResult && (
