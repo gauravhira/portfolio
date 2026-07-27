@@ -58,6 +58,34 @@ const LOCATION_PRESETS: Record<"USA" | "UAE" | "India", string[]> = {
 };
 const MAX_LOCATIONS = 8;
 
+const BUSINESS_TYPE_CHIP_GROUPS: { label: string; options: string[] }[] = [
+  {
+    label: "Food & Lifestyle",
+    options: [
+      "Cafe",
+      "Restaurant",
+      "Tiffin",
+      "Meal Delivery",
+      "Cloud Kitchen",
+      "Health Food",
+      "Meal Prep",
+      "Ghost Kitchen",
+    ],
+  },
+  {
+    label: "General SME",
+    options: [
+      "Gyms",
+      "Pilates Studios",
+      "Real Estate",
+      "Accounting",
+      "Law Firm",
+      "Home Services",
+      "Marketing Agency",
+    ],
+  },
+];
+
 // Shared pill style: light outline by default, solid navy when active — matches
 // the portfolio's own "selected chip" convention (see ProjectGrid tech tags).
 function pillClass(active: boolean) {
@@ -320,10 +348,11 @@ function OpsDashboardContent() {
     leadGenCountry === "Custom"
       ? leadGenLocations.trim()
       : [...leadGenSelectedCities, ...leadGenCustomLocationEntries].join(", ");
-  const leadGenBusinessTypeCount = leadGenBusinessType
+  const leadGenBusinessTypeEntries = leadGenBusinessType
     .split(",")
     .map((s) => s.trim())
-    .filter(Boolean).length;
+    .filter(Boolean);
+  const leadGenBusinessTypeCount = leadGenBusinessTypeEntries.length;
   const leadGenKeywordsList = leadGenKeywords.split(",").map((s) => s.trim()).filter(Boolean);
   const leadGenKeywordsCount = leadGenKeywordsList.length > 0 ? leadGenKeywordsList.length : 1;
   const leadGenEstimatedSearches =
@@ -348,6 +377,14 @@ function OpsDashboardContent() {
   function closeLeadGenModal() {
     if (leadGenRunning) return;
     setShowLeadGenModal(false);
+  }
+
+  function toggleBusinessTypeChip(value: string) {
+    const exists = leadGenBusinessTypeEntries.includes(value);
+    const next = exists
+      ? leadGenBusinessTypeEntries.filter((entry) => entry !== value)
+      : [...leadGenBusinessTypeEntries, value];
+    setLeadGenBusinessType(next.join(", "));
   }
 
   function handleLeadGenCountryChange(value: "USA" | "UAE" | "India" | "Custom") {
@@ -1431,6 +1468,29 @@ function OpsDashboardContent() {
                   className={`${fieldInputClass} disabled:opacity-60`}
                 />
               </label>
+
+              <div className="flex flex-col gap-3">
+                {BUSINESS_TYPE_CHIP_GROUPS.map((group) => (
+                  <div key={group.label}>
+                    <p className="text-[11px] uppercase tracking-wide text-[var(--muted)] mb-1.5">
+                      {group.label}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {group.options.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          disabled={leadGenRunning}
+                          onClick={() => toggleBusinessTypeChip(option)}
+                          className={`${pillClass(leadGenBusinessTypeEntries.includes(option))} disabled:opacity-50`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
 
               <label className="text-xs text-[var(--muted)]">
                 <span>Country</span>
