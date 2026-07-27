@@ -16,6 +16,7 @@ export async function PATCH(
     email_body?: string;
     linkedin_message?: string;
     linkedin_url?: string;
+    dm_sent?: boolean;
   };
   try {
     body = await request.json();
@@ -23,7 +24,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const update: Record<string, string | null> = {};
+  const update: Record<string, string | boolean | null> = {};
 
   if (body.status !== undefined) {
     if (!ALLOWED_STATUSES.includes(body.status)) {
@@ -39,6 +40,7 @@ export async function PATCH(
     const trimmed = body.linkedin_url.trim();
     update.linkedin_url = trimmed === "" ? null : trimmed;
   }
+  if (body.dm_sent !== undefined) update.dm_sent = body.dm_sent;
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });

@@ -21,6 +21,8 @@ export interface Lead {
   email_subject: string | null;
   email_body: string | null;
   linkedin_message: string | null;
+  dm_draft: string | null;
+  dm_sent: boolean;
   status: LeadStatus;
   created_at: string;
   sent_at: string | null;

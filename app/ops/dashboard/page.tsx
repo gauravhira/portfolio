@@ -269,6 +269,7 @@ function OpsDashboardContent() {
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [sendResults, setSendResults] = useState<Record<string, SendResult>>({});
   const [fieldSaveStatus, setFieldSaveStatus] = useState<FieldSaveState>({});
+  const [copiedDmId, setCopiedDmId] = useState<string | null>(null);
   const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkApproving, setBulkApproving] = useState(false);
@@ -565,7 +566,7 @@ function OpsDashboardContent() {
     };
   }, []);
 
-  async function patchLead(id: string, body: Record<string, string>) {
+  async function patchLead(id: string, body: Record<string, string | boolean>) {
     setBusyId(id);
     try {
       const res = await fetch(`/api/ops/leads/${id}`, {
@@ -580,6 +581,18 @@ function OpsDashboardContent() {
       setError("Update failed — please retry");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function copyDmDraft(leadId: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedDmId(leadId);
+      setTimeout(() => {
+        setCopiedDmId((prev) => (prev === leadId ? null : prev));
+      }, SAVED_FADE_MS);
+    } catch {
+      setError("Copy failed — please retry");
     }
   }
 
@@ -1110,6 +1123,54 @@ function OpsDashboardContent() {
                 </label>
               </div>
             </div>
+
+            {lead.service_fit === "social" && lead.dm_draft && (
+              <div className="flex flex-col gap-3 pt-4 mt-4 border-t border-black/[0.07]">
+                <label className="text-xs text-[var(--muted)]">
+                  <div className="flex items-center justify-between">
+                    <span>Instagram DM</span>
+                    <div className="flex items-center gap-2">
+                      {copiedDmId === lead.id && (
+                        <span className="text-emerald-600 normal-case">Copied</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => copyDmDraft(lead.id, lead.dm_draft ?? "")}
+                        className="text-[var(--cyan2)] hover:underline normal-case"
+                      >
+                        Copy DM
+                      </button>
+                      {lead.instagram_url && (
+                        <a
+                          href={lead.instagram_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[var(--cyan2)] hover:underline normal-case"
+                        >
+                          Open Instagram
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  <textarea
+                    value={lead.dm_draft}
+                    readOnly
+                    rows={5}
+                    className={fieldInputClass}
+                  />
+                </label>
+
+                <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                  <input
+                    type="checkbox"
+                    checked={lead.dm_sent}
+                    onChange={() => patchLead(lead.id, { dm_sent: !lead.dm_sent })}
+                    className="w-4 h-4 accent-[var(--navy)]"
+                  />
+                  DM Sent
+                </label>
+              </div>
+            )}
 
             <div className="flex gap-2 pt-4 mt-4 border-t border-black/[0.07]">
               <button
