@@ -1440,7 +1440,7 @@ function OpsDashboardContent() {
             if (e.target === e.currentTarget) closeLeadGenModal();
           }}
         >
-          <div className="bg-white border border-black/[0.1] rounded-2xl p-6 w-full max-w-lg">
+          <div className="bg-white border border-black/[0.1] rounded-2xl p-6 w-full max-w-lg max-h-[90vh] flex flex-col">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <h2 className="font-serif text-lg leading-tight text-[var(--navy)]">Run Lead Gen</h2>
@@ -1456,7 +1456,7 @@ function OpsDashboardContent() {
               </button>
             </div>
 
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 overflow-y-auto">
               <label className="text-xs text-[var(--muted)]">
                 <span>Business Type</span>
                 <input
