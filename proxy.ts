@@ -1,6 +1,25 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/ops-session";
+
+const AUTOMATION_KEY_HEADER = "x-ops-automation-key";
+
+// Only this route accepts the automation key — it's the one n8n calls on a
+// schedule to fire off approved leads with no browser session available.
+// Keep this narrow: every other /api/ops/* route still requires a session.
+const AUTOMATION_ALLOWED_PATH = /^\/api\/ops\/leads\/[^/]+\/send$/;
+
+function hasValidAutomationKey(request: NextRequest): boolean {
+  const provided = request.headers.get(AUTOMATION_KEY_HEADER);
+  const expected = process.env.OPS_AUTOMATION_KEY;
+  if (!provided || !expected) return false;
+
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || a.length === 0) return false;
+  return timingSafeEqual(a, b);
+}
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -19,6 +38,12 @@ export function proxy(request: NextRequest) {
       pathname !== "/api/ops/auth" &&
       pathname !== "/api/ops/logout"
     ) {
+      // Automation key check, tried first, falls through to the normal session
+      // check exactly as before if the header is absent or doesn't match.
+      if (AUTOMATION_ALLOWED_PATH.test(pathname) && hasValidAutomationKey(request)) {
+        return NextResponse.next();
+      }
+
       const token = request.cookies.get(SESSION_COOKIE)?.value;
       if (!token || !verifySessionToken(token)) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
