@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     locations?: string;
     keywords?: string;
     maxResults?: number;
+    skipHunter?: boolean;
   };
 
   try {
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest) {
         locations: body.locations,
         keywords: body.keywords || "",
         maxResults: body.maxResults || 20,
+        skipHunter: body.skipHunter || false,
       }),
     });
 
