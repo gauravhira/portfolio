@@ -42,11 +42,11 @@ export async function GET(request: NextRequest) {
   if (businessType) query = query.eq("business_type", businessType);
 
   if (reachability === "has_email") {
-    query = query.not("email", "is", null);
+    query = query.not("email", "is", null).neq("email", "");
   } else if (reachability === "has_linkedin") {
-    query = query.not("linkedin_url", "is", null);
+    query = query.not("linkedin_url", "is", null).neq("linkedin_url", "");
   } else if (reachability === "reachable") {
-    query = query.or("email.not.is.null,linkedin_url.not.is.null");
+    query = query.or("and(email.not.is.null,email.neq.),and(linkedin_url.not.is.null,linkedin_url.neq.)");
   }
 
   const [
@@ -56,13 +56,21 @@ export async function GET(request: NextRequest) {
     { count: needResearch, error: needResearchError },
   ] = await Promise.all([
     query,
-    supabase.from("leads").select("*", { count: "exact", head: true }).not("email", "is", null),
-    supabase.from("leads").select("*", { count: "exact", head: true }).not("linkedin_url", "is", null),
     supabase
       .from("leads")
       .select("*", { count: "exact", head: true })
-      .is("email", null)
-      .is("linkedin_url", null),
+      .not("email", "is", null)
+      .neq("email", ""),
+    supabase
+      .from("leads")
+      .select("*", { count: "exact", head: true })
+      .not("linkedin_url", "is", null)
+      .neq("linkedin_url", ""),
+    supabase
+      .from("leads")
+      .select("*", { count: "exact", head: true })
+      .or("email.is.null,email.eq.")
+      .or("linkedin_url.is.null,linkedin_url.eq."),
   ]);
 
   const firstError = error ?? withEmailError ?? withLinkedinError ?? needResearchError;

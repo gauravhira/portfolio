@@ -1229,6 +1229,18 @@ function OpsDashboardContent() {
                     className={fieldInputClass}
                   />
                 </label>
+
+                {(lead.linkedin_url || lead.linkedin_message) && (
+                  <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                    <input
+                      type="checkbox"
+                      checked={lead.linkedin_sent}
+                      onChange={() => patchLead(lead.id, { linkedin_sent: !lead.linkedin_sent })}
+                      className="w-4 h-4 accent-[var(--navy)]"
+                    />
+                    LinkedIn Sent
+                  </label>
+                )}
               </div>
             </div>
 
