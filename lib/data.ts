@@ -76,6 +76,21 @@ export const projects = [
     appIcon: "https://play-lh.googleusercontent.com/seY5Xdph2GsXu3ft-q6xCusssJRHuMo98XQTq3ayaLJQxrmCtY7AcUixmaQZ82sc-PI=w240-h480",
   },
   {
+    id: "clearcycle",
+    name: "ClearCycle",
+    badge: "AI Healthcare",
+    badgeColor: "cyan",
+    icon: "🏥",
+    metrics: [
+      { val: "71,704", lbl: "ICD-10 codes" },
+      { val: "~13×", lbl: "Cost reduction" },
+    ],
+    description:
+      "Multi-agent AI claims-automation platform for Indian hospitals. Event-driven pipeline (5 SQS queues) converts discharge summaries into claim-ready ICD-10/CPT codes. Cost-aware LLM router sends most documents through Llama 3 8B, escalating to Claude only when confidence < 0.82. Hallucination guardrails validate every code against 71,704 WHO ICD-10 + 10,836 CPT entries in Postgres.",
+    tech: ["Python", "TypeScript", "Next.js", "PostgreSQL", "Docker", "AWS Lambda", "AWS Bedrock", "SQS", "RDS", "CDK", "n8n", "GitHub Actions"],
+    links: [{ label: "clearcycle.in ↗", href: "https://clearcycle.in", primary: true }],
+  },
+  {
     id: "automation-systems",
     name: "Automation & Workflow Systems",
     badge: "Automation Infrastructure",
@@ -152,21 +167,29 @@ export const projects = [
 
 export const skills = [
   { label: "Mobile", tags: ["React Native", "Expo", "TypeScript", "Expo Router", "OTA Updates", "iOS + Android"], variant: "default" },
-  { label: "Frontend / Web", tags: ["Next.js", "Vite.js", "Vue.js", "React", "Tailwind CSS"], variant: "default" },
-  { label: "Backend", tags: ["Node.js", "Express.js", "MongoDB", "WebSockets", "REST APIs", "Redis"], variant: "default" },
-  { label: "Cloud & DevOps", tags: ["AWS EC2", "Nginx", "PM2", "GitHub Actions", "CI/CD"], variant: "default" },
-  { label: "AI & Automation", tags: ["Anthropic Claude API", "Claude Code", "GitHub Copilot", "Agentic workflows", "Prompt engineering"], variant: "ai" },
-  { label: "Other Languages", tags: ["C# (.NET)", "C (Embedded)", "Python", "C++", "PyTorch"], variant: "default" },
+  { label: "Frontend / Web", tags: ["Next.js", "Vue.js", "React", "Tailwind CSS"], variant: "default" },
+  { label: "Backend & Data", tags: ["Node.js", "Express.js", "PostgreSQL", "MongoDB", "WebSockets", "REST APIs", "Redis", "SQL"], variant: "default" },
+  { label: "Cloud & DevOps", tags: ["Docker", "AWS Lambda", "AWS EC2", "AWS Bedrock", "SQS", "RDS", "CDK", "S3", "IAM", "SSM", "Nginx", "PM2", "GitHub Actions", "CI/CD"], variant: "default" },
+  { label: "AI & Automation", tags: ["Multi-agent systems", "LLM orchestration", "Model routing", "AWS Bedrock", "Anthropic Claude API", "MCP", "n8n", "Prompt engineering", "LLM output validation", "Claude Code"], variant: "ai" },
+  { label: "Other Languages", tags: ["Python", "C# (.NET)", "C (Embedded)", "SQL"], variant: "default" },
 ];
 
 export const experience = [
   {
-    emoji: "🍱",
+    emoji: "🤖",
     active: true,
-    role: "GigaFit Meals — Founder & Tech Lead",
-    period: "2024 – Present · Bengaluru, India",
+    role: "Black Loom Labs — Lead Engineer",
+    period: "2026 – Present · Bengaluru, India",
     description:
-      "Built the full software stack of a live D2C food-delivery brand — mobile apps, web dashboards, Node.js backend, AWS infrastructure, and a fully automated kitchen operations pipeline. Currently delivering 40–50 meals/day to 20+ subscribers with zero manual touchpoints in the SOP.",
+      "Building ClearCycle — a multi-agent AI claims-automation platform for Indian hospitals. Event-driven pipeline (5 SQS queues) with a cost-aware LLM router (Llama 3 8B → Claude), hallucination guardrails against 71,704 ICD-10 and 10,836 CPT codes, and a self-learning policy engine. Deployed on AWS Lambda with 4 CDK stacks and GitHub Actions + SSM OIDC (no long-lived keys).",
+  },
+  {
+    emoji: "🍱",
+    active: false,
+    role: "GigaFit Meals — Lead Engineer",
+    period: "Apr 2025 – Apr 2026 · Bengaluru, India",
+    description:
+      "Built and ran the full software stack of a D2C healthy-meal subscription platform — 50 subscribers/month, 80–100 meals/day, INR 1L+ monthly revenue, team of 3. Automated the entire daily operations SOP with zero manual touchpoints: Claude API scaled recipes, cron-triggered n8n workflows generated and emailed kitchen reports. Shipped React Native apps for iOS and Android with OTP auth, PayU checkout, and live order tracking.",
   },
   {
     emoji: "⚡",
@@ -174,11 +197,11 @@ export const experience = [
     role: "ReVx Energy — C# Developer & Firmware Engineer",
     period: "Jan 2024 – Mar 2025 · Bengaluru, India",
     description:
-      "Built enterprise desktop software (ReVx BMS Studio) in C# for real-time EV battery monitoring. Reduced latency by 99.5% and transfer times by 85%. Also wrote embedded C firmware for BMS client builds including parallel-mode configurations and FOTA integration.",
+      "Built ReVx BMS Studio — an enterprise .NET desktop app on the Microsoft Store for real-time EV battery monitoring, adopted across every BMS product line. Reduced latency by 99.5% versus the legacy Python app. Cut SD-card transfer times by 85%+ with LZ4 compression over CAN. Also wrote embedded C firmware including parallel-mode data-transfer algorithms.",
   },
 ];
 
 export const education = [
-  { degree: "M.Sc. Computer Science", institution: "St. Joseph's University, Bengaluru", year: "2022 – 2024", cgpa: "CGPA 8.025" },
-  { degree: "B.Sc. (Hons) Computer Science", institution: "Delhi University · Minor in Mathematics", year: "2019 – 2022", cgpa: "CGPA 8.014" },
+  { degree: "M.Sc. Computer Science", institution: "St. Joseph's University, Bengaluru", year: "2022 – 2024", cgpa: "CGPA 8.03/10" },
+  { degree: "B.Sc. (Hons) Computer Science", institution: "University of Delhi · Minor in Mathematics", year: "2019 – 2022", cgpa: "CGPA 8.01/10" },
 ];
