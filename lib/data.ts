@@ -205,3 +205,9 @@ export const education = [
   { degree: "M.Sc. Computer Science", institution: "St. Joseph's University, Bengaluru", year: "2022 – 2024", cgpa: "CGPA 8.03/10" },
   { degree: "B.Sc. (Hons) Computer Science", institution: "University of Delhi · Minor in Mathematics", year: "2019 – 2022", cgpa: "CGPA 8.01/10" },
 ];
+
+export const certifications = [
+  { name: "Building and Optimizing AI Agent Workflows", issuer: "Coursera", icon: "🤖" },
+  { name: "AWS Cloud Foundations", issuer: "Amazon Web Services", icon: "☁️" },
+  { name: "Algorithms Part 1", issuer: "Princeton University / Coursera", icon: "📐" },
+];

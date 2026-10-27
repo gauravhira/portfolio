@@ -1,4 +1,4 @@
-import { experience, education } from "@/lib/data";
+import { experience, education, certifications } from "@/lib/data";
 
 export default function Experience() {
   return (
@@ -39,13 +39,30 @@ export default function Experience() {
       <p className="text-[11px] font-medium tracking-[1.5px] uppercase text-[--cyan2] mb-4">
         Education
       </p>
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-4 mb-14">
         {education.map((e) => (
           <div key={e.degree}
             className="flex-1 min-w-[240px] bg-white rounded-2xl border border-black/[0.07] px-6 py-5">
             <p className="text-[11px] font-medium tracking-[0.5px] text-[--cyan2] mb-2">{e.year}</p>
             <h3 className="font-serif text-[17px] text-[--navy] mb-1">{e.degree}</h3>
             <p className="text-[13px] text-[--muted]">{e.institution} · {e.cgpa}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Certifications */}
+      <p className="text-[11px] font-medium tracking-[1.5px] uppercase text-[--cyan2] mb-4">
+        Certifications
+      </p>
+      <div className="flex flex-wrap gap-3">
+        {certifications.map((c) => (
+          <div key={c.name}
+            className="flex items-center gap-3 bg-white rounded-2xl border border-black/[0.07] px-5 py-4">
+            <span className="text-[20px]">{c.icon}</span>
+            <div>
+              <p className="text-[13px] font-medium text-[--navy]">{c.name}</p>
+              <p className="text-[11px] text-[--muted] mt-[2px]">{c.issuer}</p>
+            </div>
           </div>
         ))}
       </div>
