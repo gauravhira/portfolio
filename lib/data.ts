@@ -207,7 +207,7 @@ export const education = [
 ];
 
 export const certifications = [
-  { name: "Building and Optimizing AI Agent Workflows", issuer: "Coursera", icon: "🤖" },
-  { name: "AWS Cloud Foundations", issuer: "Amazon Web Services", icon: "☁️" },
+  { name: "Building and Optimizing AI Agent Workflows", issuer: "Coursera", icon: "🤖", href: "https://www.coursera.org/account/accomplishments/verify/2AQ2H2WUAB5Q" },
+  { name: "AWS Cloud Foundations", issuer: "Amazon Web Services", icon: "☁️", href: "https://www.credly.com/badges/e25098f1-463f-4b22-81f9-b3847df0333e/linked_in_profile" },
   { name: "Algorithms Part 1", issuer: "Princeton University / Coursera", icon: "📐" },
 ];

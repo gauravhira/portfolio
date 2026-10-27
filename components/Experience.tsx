@@ -55,16 +55,31 @@ export default function Experience() {
         Certifications
       </p>
       <div className="flex flex-wrap gap-3">
-        {certifications.map((c) => (
-          <div key={c.name}
-            className="flex items-center gap-3 bg-white rounded-2xl border border-black/[0.07] px-5 py-4">
-            <span className="text-[20px]">{c.icon}</span>
-            <div>
-              <p className="text-[13px] font-medium text-[--navy]">{c.name}</p>
-              <p className="text-[11px] text-[--muted] mt-[2px]">{c.issuer}</p>
+        {certifications.map((c) => {
+          const inner = (
+            <>
+              <span className="text-[20px]">{c.icon}</span>
+              <div>
+                <p className="text-[13px] font-medium text-[--navy]">{c.name}</p>
+                <p className="text-[11px] text-[--muted] mt-[2px]">{c.issuer}</p>
+              </div>
+              {c.href && (
+                <span className="ml-auto text-[11px] font-medium text-[--cyan2]">Verify ↗</span>
+              )}
+            </>
+          );
+          return c.href ? (
+            <a key={c.name} href={c.href} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-3 bg-white rounded-2xl border border-black/[0.07] px-5 py-4 transition-all hover:-translate-y-[1px] hover:border-[--cyan2]/30">
+              {inner}
+            </a>
+          ) : (
+            <div key={c.name}
+              className="flex items-center gap-3 bg-white rounded-2xl border border-black/[0.07] px-5 py-4">
+              {inner}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
